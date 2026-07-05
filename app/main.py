@@ -8,10 +8,6 @@ from app.core.logger import logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Handles application startup and shutdown.
-    """
-
     logger.info(f"Starting {settings.app_name}...")
 
     yield
@@ -29,9 +25,7 @@ app = FastAPI(
 
 @app.get("/", tags=["Root"])
 async def root():
-    return {
-        "message": f"Welcome to {settings.app_name}"
-    }
+    return {"message": f"Welcome to {settings.app_name}"}
 
 
 @app.get("/health", tags=["Health"])
