@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.core.logger import logger
+from app.modules.auth.routes import router as auth_router
 
 
 @asynccontextmanager
@@ -36,3 +37,5 @@ async def health_check():
         "version": settings.app_version,
         "environment": settings.environment,
     }
+
+app.include_router(auth_router)
