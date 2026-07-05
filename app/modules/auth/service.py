@@ -4,17 +4,21 @@ from app.modules.users.models import User
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import UserCreate
 from datetime import datetime, timedelta, timezone
+from app.core.security import verify_password
+from app.modules.auth.models import RefreshToken
+from app.modules.auth.repository import RefreshTokenRepository
+from app.core.config import settings
 
 from app.core.jwt import (
     create_access_token,
     create_refresh_token,
+    decode_token,
 )
-from app.core.security import verify_password
-from app.modules.auth.models import RefreshToken
-from app.modules.auth.repository import RefreshTokenRepository
 from app.modules.auth.schemas import (
     LoginRequest,
+    RefreshTokenRequest,
     TokenResponse,
+    MessageResponse,
 )
 
 class AuthService:
@@ -24,15 +28,13 @@ class AuthService:
 
     def __init__(
         self,
-        user_repository,
-        role_repository,
-        refresh_token_repository,
+        user_repository: UserRepository,
+        role_repository: RoleRepository,
+        refresh_token_repository: RefreshTokenRepository,
     ):
         self.user_repository = user_repository
         self.role_repository = role_repository
         self.refresh_token_repository = refresh_token_repository
-        self.user_repository = user_repository
-        self.role_repository = role_repository
 
     def register_user(self, user_data: UserCreate) -> User:
         """
@@ -65,6 +67,39 @@ class AuthService:
 
         return self.user_repository.create(user)
     
+
+    def _issue_tokens(
+        self,
+        user: User,
+    ) -> TokenResponse:
+        """
+        Generate and persist new access and refresh tokens.
+        """
+
+        access_token = create_access_token(
+            subject=str(user.id),
+        )
+
+        refresh_token = create_refresh_token(
+            subject=str(user.id),
+        )
+
+        refresh = RefreshToken(
+            token=refresh_token,
+            user_id=user.id,
+            expires_at = datetime.now(timezone.utc) + timedelta(
+                days=settings.refresh_token_expire_days
+            )
+        )
+
+
+        self.refresh_token_repository.create(refresh)
+
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+    
     def login_user(
         self,
         identifier: str,
@@ -88,24 +123,72 @@ class AuthService:
         ):
             raise ValueError("Invalid credentials.")
 
-        access_token = create_access_token(
-            subject=str(user.id),
+        return self._issue_tokens(user)
+    
+    def refresh_tokens(
+        self,
+        request: RefreshTokenRequest,
+    ) -> TokenResponse:
+        """
+        Rotate refresh token and issue a new access token.
+        """
+
+        # Decode JWT
+        payload = decode_token(request.refresh_token)
+
+        if payload is None:
+            raise ValueError("Invalid refresh token.")
+
+        # Ensure it's actually a refresh token
+        if payload.get("type") != "refresh":
+            raise ValueError("Invalid refresh token.")
+
+        # Find token in DB
+        stored_token = self.refresh_token_repository.get_by_token(
+            request.refresh_token
         )
 
-        refresh_token = create_refresh_token(
-            subject=str(user.id),
+        if stored_token is None:
+            raise ValueError("Refresh token not found.")
+
+        # Check revocation
+        if stored_token.is_revoked:
+            raise ValueError("Refresh token revoked.")
+
+        # Revoke old token
+        self.refresh_token_repository.revoke(stored_token)
+
+        return self._issue_tokens(stored_token.user)
+    
+    def logout(
+        self,
+        request: RefreshTokenRequest,
+    ) -> MessageResponse:
+        """
+        Logout user by revoking the refresh token.
+        """
+
+        payload = decode_token(request.refresh_token)
+
+        if payload is None:
+            raise ValueError("Invalid refresh token.")
+
+        if payload.get("type") != "refresh":
+            raise ValueError("Invalid refresh token.")
+
+        stored_token = self.refresh_token_repository.get_by_token(
+            request.refresh_token
         )
 
-        refresh = RefreshToken(
-            token=refresh_token,
-            user_id=user.id,
-            expires_at=datetime.now(timezone.utc)
-            + timedelta(days=7),
-        )
+        if stored_token is None:
+            raise ValueError("Refresh token not found.")
 
-        self.refresh_token_repository.create(refresh)
+        if stored_token.is_revoked:
+            raise ValueError("Refresh token already revoked.")
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
+        self.refresh_token_repository.revoke(stored_token)
+
+        return MessageResponse(
+            message="Logged out successfully."
         )
+    

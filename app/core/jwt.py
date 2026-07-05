@@ -62,7 +62,7 @@ def create_refresh_token(
     )
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str) -> dict[str, Any] | None:
     """
     Decode and validate a JWT.
     """
@@ -75,4 +75,4 @@ def decode_token(token: str) -> dict:
         )
 
     except JWTError:
-        return {}
+        return None
