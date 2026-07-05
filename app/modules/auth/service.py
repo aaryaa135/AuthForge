@@ -117,6 +117,9 @@ class AuthService:
         if user is None:
             raise ValueError("Invalid credentials.")
 
+        if not user.is_active:
+            raise ValueError("User account is inactive.")
+
         if not verify_password(
             password,
             user.hashed_password,
