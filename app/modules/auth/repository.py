@@ -27,3 +27,10 @@ class RefreshTokenRepository:
     def revoke(self, token: RefreshToken) -> None:
         token.is_revoked = True
         self.db.commit()
+
+    def delete(self, refresh_token: RefreshToken) -> None:
+        """
+        Remove a refresh token from the database.
+        """
+        self.db.delete(refresh_token)
+        self.db.commit()

@@ -10,10 +10,12 @@ from app.modules.auth.repository import RefreshTokenRepository
 from app.modules.auth.schemas import (
     LoginRequest,
     TokenResponse,
+    MessageResponse,
 )
 from app.modules.users.models import User
 from app.shared.dependencies import get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
+from app.modules.auth.schemas import RefreshTokenRequest
 
 router = APIRouter(
     prefix="/api/v1/auth",
@@ -76,3 +78,49 @@ def me(
     current_user: User = Depends(get_current_user),
 ):
     return UserResponse.model_validate(current_user)
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+)
+def refresh(
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    auth_service = AuthService(
+        UserRepository(db),
+        RoleRepository(db),
+        RefreshTokenRepository(db),
+    )
+
+    try:
+        return auth_service.refresh_tokens(request)
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        )
+    
+@router.post(
+    "/logout",
+    response_model=MessageResponse,
+)
+def logout(
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    auth_service = AuthService(
+        UserRepository(db),
+        RoleRepository(db),
+        RefreshTokenRepository(db),
+    )
+
+    try:
+        return auth_service.logout(request)
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        )
