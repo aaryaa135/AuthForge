@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from typing import Optional
 
 class Settings(BaseSettings):
     """
@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     # =========================
     # Database
     # =========================
+    database_url_env: Optional[str] = None
+
     db_host: str
     db_port: int
     db_name: str
@@ -55,6 +57,9 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def database_url(self) -> str:
+        if self.database_url_env:
+            return self.database_url_env
+
         return (
             f"postgresql+psycopg2://"
             f"{self.db_user}:{self.db_password}"
