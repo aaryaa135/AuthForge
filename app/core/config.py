@@ -26,13 +26,13 @@ class Settings(BaseSettings):
     # =========================
     # Database
     # =========================
-    database_url_env: Optional[str] = None
+    database_url: Optional[str] = None
 
-    db_host: str
-    db_port: int
-    db_name: str
-    db_user: str
-    db_password: str
+    db_host: Optional[str] = None
+    db_port: Optional[int] = None
+    db_name: Optional[str] = None
+    db_user: Optional[str] = None
+    db_password: Optional[str] = None
 
     # =========================
     # JWT
@@ -54,11 +54,23 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @computed_field
     @property
-    def database_url(self) -> str:
-        if self.database_url_env:
-            return self.database_url_env
+    def sqlalchemy_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+
+        if not all(
+            [
+                self.db_host,
+                self.db_port,
+                self.db_name,
+                self.db_user,
+                self.db_password,
+            ]
+        ):
+            raise ValueError(
+                "Either DATABASE_URL or all DB_* variables must be provided."
+            )
 
         return (
             f"postgresql+psycopg2://"
