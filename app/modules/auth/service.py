@@ -8,18 +8,29 @@ from app.core.security import verify_password
 from app.modules.auth.models import RefreshToken
 from app.modules.auth.repository import RefreshTokenRepository
 from app.core.config import settings
-
+from app.core.logger import logger
 from app.core.jwt import (
     create_access_token,
     create_refresh_token,
     decode_token,
 )
 from app.modules.auth.schemas import (
-    LoginRequest,
     RefreshTokenRequest,
     TokenResponse,
     MessageResponse,
 )
+from secrets import token_urlsafe
+
+from app.modules.auth.models import PasswordResetToken
+from app.modules.auth.repository import PasswordResetRepository
+from app.modules.auth.schemas import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
+    ChangePasswordRequest,
+)
+from app.core.exceptions import AppException
+
 
 class AuthService:
     """
@@ -31,10 +42,12 @@ class AuthService:
         user_repository: UserRepository,
         role_repository: RoleRepository,
         refresh_token_repository: RefreshTokenRepository,
+        password_reset_repository: PasswordResetRepository,
     ):
         self.user_repository = user_repository
         self.role_repository = role_repository
         self.refresh_token_repository = refresh_token_repository
+        self.password_reset_repository = password_reset_repository
 
     def register_user(self, user_data: UserCreate) -> User:
         """
@@ -65,8 +78,14 @@ class AuthService:
             is_verified=False,
         )
 
-        return self.user_repository.create(user)
-    
+        created_user = self.user_repository.create(user)
+
+        logger.info(
+            "User registered: %s",
+            created_user.email,
+        )
+
+        return created_user
 
     def _issue_tokens(
         self,
@@ -87,11 +106,9 @@ class AuthService:
         refresh = RefreshToken(
             token=refresh_token,
             user_id=user.id,
-            expires_at = datetime.now(timezone.utc) + timedelta(
-                days=settings.refresh_token_expire_days
-            )
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(days=settings.refresh_token_expire_days),
         )
-
 
         self.refresh_token_repository.create(refresh)
 
@@ -99,7 +116,7 @@ class AuthService:
             access_token=access_token,
             refresh_token=refresh_token,
         )
-    
+
     def login_user(
         self,
         identifier: str,
@@ -115,6 +132,10 @@ class AuthService:
             user = self.user_repository.get_by_username(identifier)
 
         if user is None:
+            logger.warning(
+                "Invalid login attempt: %s",
+                identifier,
+            )
             raise ValueError("Invalid credentials.")
 
         if not user.is_active:
@@ -124,10 +145,19 @@ class AuthService:
             password,
             user.hashed_password,
         ):
+            logger.warning(
+                "Invalid login attempt: %s",
+                identifier,
+            )
             raise ValueError("Invalid credentials.")
 
+        logger.info(
+            "User logged in: %s",
+            user.email,
+        )
+
         return self._issue_tokens(user)
-    
+
     def refresh_tokens(
         self,
         request: RefreshTokenRequest,
@@ -147,9 +177,7 @@ class AuthService:
             raise ValueError("Invalid refresh token.")
 
         # Find token in DB
-        stored_token = self.refresh_token_repository.get_by_token(
-            request.refresh_token
-        )
+        stored_token = self.refresh_token_repository.get_by_token(request.refresh_token)
 
         if stored_token is None:
             raise ValueError("Refresh token not found.")
@@ -162,7 +190,7 @@ class AuthService:
         self.refresh_token_repository.revoke(stored_token)
 
         return self._issue_tokens(stored_token.user)
-    
+
     def logout(
         self,
         request: RefreshTokenRequest,
@@ -179,9 +207,7 @@ class AuthService:
         if payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token.")
 
-        stored_token = self.refresh_token_repository.get_by_token(
-            request.refresh_token
-        )
+        stored_token = self.refresh_token_repository.get_by_token(request.refresh_token)
 
         if stored_token is None:
             raise ValueError("Refresh token not found.")
@@ -191,7 +217,101 @@ class AuthService:
 
         self.refresh_token_repository.revoke(stored_token)
 
-        return MessageResponse(
-            message="Logged out successfully."
+        return MessageResponse(message="Logged out successfully.")
+
+    def forgot_password(
+        self,
+        request: ForgotPasswordRequest,
+    ) -> ForgotPasswordResponse:
+        """
+        Generate a password reset token.
+        """
+
+        user = self.user_repository.get_by_email(request.email)
+
+        if user is None:
+            return ForgotPasswordResponse(
+                message="If the email exists, a password reset link has been sent."
+            )
+
+        reset_token = token_urlsafe(32)
+
+        token = PasswordResetToken(
+            token=reset_token,
+            user_id=user.id,
+            expires_at=datetime.utcnow() + timedelta(hours=1),
         )
-    
+
+        self.password_reset_repository.create(token)
+
+        logger.info(
+            "Password reset requested: %s",
+            user.email,
+        )
+
+        return ForgotPasswordResponse(
+            message="If the email exists, a password reset link has been sent."
+        )
+
+    def reset_password(
+        self,
+        request: ResetPasswordRequest,
+    ) -> MessageResponse:
+        """
+        Reset a user's password using a reset token.
+        """
+
+        reset = self.password_reset_repository.get_by_token(request.token)
+
+        if reset is None:
+            raise AppException(
+                detail="Invalid reset token.",
+                status_code=400,
+            )
+
+        if reset.is_used:
+            raise ValueError("Reset token already used.")
+
+        if reset.expires_at.replace(tzinfo=None) < datetime.utcnow():
+            raise ValueError("Reset token expired.")
+
+        user = reset.user
+
+        user.hashed_password = hash_password(request.new_password)
+
+        self.user_repository.update(user)
+
+        self.password_reset_repository.mark_used(reset)
+
+        logger.info(
+            "Password reset completed: %s",
+            user.email,
+        )
+
+        return MessageResponse(message="Password reset successful.")
+
+    def change_password(
+        self,
+        current_user: User,
+        request: ChangePasswordRequest,
+    ) -> MessageResponse:
+        """
+        Change the current user's password.
+        """
+
+        if not verify_password(
+            request.current_password,
+            current_user.hashed_password,
+        ):
+            raise ValueError("Current password is incorrect.")
+
+        current_user.hashed_password = hash_password(request.new_password)
+
+        self.user_repository.update(current_user)
+
+        logger.info(
+            "Password changed: %s",
+            current_user.email,
+        )
+
+        return MessageResponse(message="Password changed successfully.")

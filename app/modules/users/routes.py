@@ -14,10 +14,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from app.modules.roles.repository import RoleRepository
-from app.modules.users.schemas import (
-    UpdateUserRoleRequest,
-    UpdateUserStatusRequest
-)
+from app.modules.users.schemas import UpdateUserRoleRequest, UpdateUserStatusRequest
 
 router = APIRouter(
     prefix="/users",
@@ -38,6 +35,7 @@ def list_users(
     )
 
     return service.list_users()
+
 
 @router.get(
     "/{user_id}",
@@ -60,6 +58,7 @@ def get_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
+
 
 @router.patch(
     "/{user_id}/role",
@@ -89,7 +88,8 @@ def update_user_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    
+
+
 @router.patch(
     "/{user_id}/status",
     response_model=UserResponse,
@@ -115,5 +115,3 @@ def update_user_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
-    
-    

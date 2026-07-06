@@ -39,3 +39,40 @@ class RefreshToken(Base, TimestampMixin):
     )
 
     user = relationship("User")
+
+
+class PasswordResetToken(Base, TimestampMixin):
+    """
+    Password reset token.
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+
+    token: Mapped[str] = mapped_column(
+        String,
+        unique=True,
+        nullable=False,
+    )
+
+    user_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        nullable=False,
+    )
+
+    is_used: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+    )
+
+    user = relationship("User")

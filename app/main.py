@@ -6,6 +6,8 @@ from app.core.config import settings
 from app.core.logger import logger
 from app.modules.auth.routes import router as auth_router
 from app.modules.users.routes import router as users_router
+from app.core.exceptions import register_exception_handlers
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,6 +25,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+register_exception_handlers(app)
+
 
 @app.get("/", tags=["Root"])
 async def root():
@@ -37,6 +41,7 @@ async def health_check():
         "version": settings.app_version,
         "environment": settings.environment,
     }
+
 
 app.include_router(auth_router)
 app.include_router(users_router)

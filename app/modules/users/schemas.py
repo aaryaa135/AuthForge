@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+
 class UserCreate(BaseModel):
     """
     Request schema for user registration.
@@ -23,7 +24,7 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     """
-    Response schema returned after registration.
+    User response schema.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -31,21 +32,15 @@ class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     username: str
-    is_active: bool
-    is_verified: bool
-    role_id: UUID
-    created_at: datetime
-
-class UserResponse(BaseModel):
-    id: UUID
-    email: str
-    username: str
     role: str
     is_active: bool
+    is_verified: bool
     created_at: datetime
+
 
 class UpdateUserRoleRequest(BaseModel):
     role: str
+
 
 class UpdateUserStatusRequest(BaseModel):
     is_active: bool
