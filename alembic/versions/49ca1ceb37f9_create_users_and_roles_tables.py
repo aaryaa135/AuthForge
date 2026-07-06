@@ -1,3 +1,4 @@
+
 """create users and roles tables
 
 Revision ID: 49ca1ceb37f9
@@ -9,6 +10,9 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+
+import uuid
+from sqlalchemy.sql import table, column
 
 
 # revision identifiers, used by Alembic.
@@ -40,6 +44,29 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name"),
+    )
+
+    roles_table = table(
+        "roles",
+        column("id", sa.UUID()),
+        column("name", sa.String),
+        column("description", sa.String),
+    )
+
+    op.bulk_insert(
+        roles_table,
+        [
+            {
+                "id": uuid.uuid4(),
+                "name": "Admin",
+                "description": "System Administrator",
+            },
+            {
+                "id": uuid.uuid4(),
+                "name": "User",
+                "description": "Default User",
+            },
+        ],
     )
     op.create_table(
         "users",

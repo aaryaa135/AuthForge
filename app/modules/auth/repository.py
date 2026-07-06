@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.auth.models import RefreshToken
 from app.modules.auth.models import PasswordResetToken
-
+from app.modules.auth.models import EmailVerificationToken
 
 class RefreshTokenRepository:
     """
@@ -57,6 +57,40 @@ class PasswordResetRepository:
     def mark_used(
         self,
         token: PasswordResetToken,
+    ):
+        token.is_used = True
+        self.db.commit()
+        self.db.refresh(token)
+        return token
+    
+class EmailVerificationRepository:
+    def __init__(
+        self,
+        db: Session,
+    ):
+        self.db = db
+
+    def create(
+        self,
+        token: EmailVerificationToken,
+    ):
+        self.db.add(token)
+        self.db.commit()
+        self.db.refresh(token)
+        return token
+
+    def get_by_token(
+        self,
+        token: str,
+    ):
+        stmt = select(EmailVerificationToken).where(
+            EmailVerificationToken.token == token
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def mark_used(
+        self,
+        token: EmailVerificationToken,
     ):
         token.is_used = True
         self.db.commit()
