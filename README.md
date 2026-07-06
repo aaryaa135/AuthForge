@@ -27,6 +27,13 @@ The project is designed as a reusable authentication service that can be integra
 
 ---
 
+## Live Demo
+
+- API: https://authforge-ovjf.onrender.com
+- Swagger UI: https://authforge-ovjf.onrender.com/docs
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
