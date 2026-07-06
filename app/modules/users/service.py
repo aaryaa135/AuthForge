@@ -2,8 +2,9 @@ from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import UserResponse
 
 from uuid import UUID
-
+from app.core.logger import logger
 from app.modules.roles.repository import RoleRepository
+
 
 class UserService:
 
@@ -18,7 +19,6 @@ class UserService:
         self.repository = repository
 
     def list_users(self) -> list[UserResponse]:
-
         users = self.repository.get_all()
 
         return [
@@ -28,11 +28,12 @@ class UserService:
                 username=user.username,
                 role=user.role.name,
                 is_active=user.is_active,
+                is_verified=user.is_verified,
                 created_at=user.created_at,
             )
             for user in users
         ]
-    
+
     def update_role(
         self,
         user_id: UUID,
@@ -57,15 +58,22 @@ class UserService:
 
         user = self.repository.update(user)
 
+        logger.info(
+            "Role updated: %s -> %s",
+            user.email,
+            role.name,
+        )
+
         return UserResponse(
             id=user.id,
             email=user.email,
             username=user.username,
             role=user.role.name,
             is_active=user.is_active,
+            is_verified=user.is_verified,
             created_at=user.created_at,
         )
-    
+
     def get_user(
         self,
         user_id: UUID,
@@ -85,9 +93,10 @@ class UserService:
             username=user.username,
             role=user.role.name,
             is_active=user.is_active,
+            is_verified=user.is_verified,
             created_at=user.created_at,
         )
-    
+
     def update_status(
         self,
         user_id: UUID,
@@ -106,11 +115,18 @@ class UserService:
 
         user = self.repository.update(user)
 
+        logger.info(
+            "User status updated: %s -> active=%s",
+            user.email,
+            user.is_active,
+        )
+
         return UserResponse(
             id=user.id,
             email=user.email,
             username=user.username,
             role=user.role.name,
             is_active=user.is_active,
+            is_verified=user.is_verified,
             created_at=user.created_at,
         )

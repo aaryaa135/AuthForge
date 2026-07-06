@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import JWTError, jwt
-
+from uuid import uuid4
 from app.core.config import settings
 
 
@@ -49,10 +49,11 @@ def create_refresh_token(
             days=settings.refresh_token_expire_days
         )
 
-    payload: dict[str, Any] = {
+    payload = {
         "sub": subject,
         "exp": expire,
         "type": "refresh",
+        "jti": str(uuid4()),
     }
 
     return jwt.encode(

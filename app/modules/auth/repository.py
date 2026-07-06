@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import RefreshToken
+from app.modules.auth.models import PasswordResetToken
 
 
 class RefreshTokenRepository:
@@ -19,9 +20,7 @@ class RefreshTokenRepository:
         return token
 
     def get_by_token(self, token: str) -> RefreshToken | None:
-        stmt = select(RefreshToken).where(
-            RefreshToken.token == token
-        )
+        stmt = select(RefreshToken).where(RefreshToken.token == token)
         return self.db.execute(stmt).scalar_one_or_none()
 
     def revoke(self, token: RefreshToken) -> None:
@@ -34,3 +33,32 @@ class RefreshTokenRepository:
         """
         self.db.delete(refresh_token)
         self.db.commit()
+
+
+class PasswordResetRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create(self, token: PasswordResetToken):
+        self.db.add(token)
+        self.db.commit()
+        self.db.refresh(token)
+        return token
+
+    def get_by_token(self, token: str):
+        stmt = select(PasswordResetToken).where(PasswordResetToken.token == token)
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def update(self, token: PasswordResetToken):
+        self.db.commit()
+        self.db.refresh(token)
+        return token
+
+    def mark_used(
+        self,
+        token: PasswordResetToken,
+    ):
+        token.is_used = True
+        self.db.commit()
+        self.db.refresh(token)
+        return token
