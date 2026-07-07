@@ -1,4 +1,3 @@
-
 """create users and roles tables
 
 Revision ID: 49ca1ceb37f9

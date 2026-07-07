@@ -77,6 +77,7 @@ class PasswordResetToken(Base, TimestampMixin):
 
     user = relationship("User")
 
+
 class EmailVerificationToken(Base, TimestampMixin):
     """
     Email verification token.

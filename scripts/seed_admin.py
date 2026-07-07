@@ -18,21 +18,13 @@ ADMIN_PASSWORD = os.getenv("TEST_ADMIN_PASSWORD")
 def seed_admin():
     db = SessionLocal()
 
-    admin_role = (
-        db.query(Role)
-        .filter(Role.name == "Admin")
-        .first()
-    )
+    admin_role = db.query(Role).filter(Role.name == "Admin").first()
 
     if admin_role is None:
         print("Admin role not found.")
         return
 
-    existing = (
-        db.query(User)
-        .filter(User.email == ADMIN_EMAIL)
-        .first()
-    )
+    existing = db.query(User).filter(User.email == ADMIN_EMAIL).first()
 
     if existing:
         print("Admin already exists.")

@@ -5,6 +5,7 @@ from app.modules.auth.models import RefreshToken
 from app.modules.auth.models import PasswordResetToken
 from app.modules.auth.models import EmailVerificationToken
 
+
 class RefreshTokenRepository:
     """
     Handles refresh token persistence.
@@ -62,7 +63,8 @@ class PasswordResetRepository:
         self.db.commit()
         self.db.refresh(token)
         return token
-    
+
+
 class EmailVerificationRepository:
     def __init__(
         self,
