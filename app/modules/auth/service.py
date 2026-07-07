@@ -244,9 +244,7 @@ class AuthService:
         if payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token.")
 
-        stored_token = self.refresh_token_repository.get_by_token(
-            request.refresh_token
-        )
+        stored_token = self.refresh_token_repository.get_by_token(request.refresh_token)
 
         if stored_token is None:
             raise ValueError("Refresh token not found.")
@@ -279,9 +277,7 @@ class AuthService:
             remaining_ttl,
         )
 
-        return MessageResponse(
-            message="Logged out successfully."
-        )
+        return MessageResponse(message="Logged out successfully.")
 
     def forgot_password(
         self,
