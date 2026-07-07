@@ -16,6 +16,11 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    refresh_token: str
+    access_token: str
+
+
 class MessageResponse(BaseModel):
     message: str
 

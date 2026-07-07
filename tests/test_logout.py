@@ -30,9 +30,13 @@ def test_logout():
     )
 
     refresh_token = login.json()["refresh_token"]
+    access_token = login.json()["access_token"]
 
     response = client.post(
         "/api/v1/auth/logout",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+        },
         json={
             "refresh_token": refresh_token,
         },

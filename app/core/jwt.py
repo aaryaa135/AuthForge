@@ -25,6 +25,7 @@ def create_access_token(
         "sub": subject,
         "exp": expire,
         "type": "access",
+        "jti": str(uuid4()),
     }
 
     return jwt.encode(

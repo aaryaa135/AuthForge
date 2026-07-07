@@ -33,6 +33,8 @@ from app.core.exceptions import AppException
 from app.modules.auth.models import EmailVerificationToken
 from app.modules.auth.repository import EmailVerificationRepository
 from app.modules.auth.schemas import ResendVerificationRequest
+from app.providers.base import EmailProvider
+from app.cache.service import CacheService
 
 
 class AuthService:
@@ -47,12 +49,15 @@ class AuthService:
         refresh_token_repository: RefreshTokenRepository,
         password_reset_repository: PasswordResetRepository,
         email_verification_repository: EmailVerificationRepository,
+        email_provider: EmailProvider,
     ):
         self.user_repository = user_repository
         self.role_repository = role_repository
         self.refresh_token_repository = refresh_token_repository
         self.password_reset_repository = password_reset_repository
         self.email_verification_repository = email_verification_repository
+        self.email_provider = email_provider
+        self.cache = CacheService()
 
     def register_user(self, user_data: UserCreate) -> User:
         """
@@ -100,8 +105,14 @@ class AuthService:
             created_user.email,
         )
 
-        print(
-            f"\nVERIFY EMAIL:\nhttp://localhost:8000/api/v1/auth/verify-email?token={verification_token}\n"
+        verification_link = (
+            f"http://localhost:8000/api/v1/auth/verify-email"
+            f"?token={verification_token}"
+        )
+
+        self.email_provider.send_verification_email(
+            created_user.email,
+            verification_link,
         )
 
         logger.info(
@@ -217,7 +228,9 @@ class AuthService:
 
     def logout(
         self,
+        current_user: User,
         request: RefreshTokenRequest,
+        access_token: str,
     ) -> MessageResponse:
         """
         Logout user by revoking the refresh token.
@@ -231,7 +244,9 @@ class AuthService:
         if payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token.")
 
-        stored_token = self.refresh_token_repository.get_by_token(request.refresh_token)
+        stored_token = self.refresh_token_repository.get_by_token(
+            request.refresh_token
+        )
 
         if stored_token is None:
             raise ValueError("Refresh token not found.")
@@ -241,7 +256,32 @@ class AuthService:
 
         self.refresh_token_repository.revoke(stored_token)
 
-        return MessageResponse(message="Logged out successfully.")
+        # Decode access token
+        access_payload = decode_token(access_token)
+
+        if access_payload is None:
+            raise ValueError("Invalid access token.")
+
+        jti = access_payload.get("jti")
+
+        if jti is None:
+            raise ValueError("Missing token identifier.")
+
+        exp = access_payload.get("exp")
+
+        remaining_ttl = max(
+            0,
+            int(exp - datetime.now(timezone.utc).timestamp()),
+        )
+
+        self.cache.blacklist_token(
+            jti,
+            remaining_ttl,
+        )
+
+        return MessageResponse(
+            message="Logged out successfully."
+        )
 
     def forgot_password(
         self,
@@ -271,6 +311,15 @@ class AuthService:
         logger.info(
             "Password reset requested: %s",
             user.email,
+        )
+
+        reset_link = (
+            f"http://localhost:8000/api/v1/auth/reset-password" f"?token={reset_token}"
+        )
+
+        self.email_provider.send_password_reset_email(
+            user.email,
+            reset_link,
         )
 
         return ForgotPasswordResponse(
@@ -409,8 +458,14 @@ class AuthService:
             user.email,
         )
 
-        print(
-            f"\nVERIFY EMAIL:\nhttp://localhost:8000/api/v1/auth/verify-email?token={verification_token}\n"
+        verification_link = (
+            f"http://localhost:8000/api/v1/auth/verify-email"
+            f"?token={verification_token}"
+        )
+
+        self.email_provider.send_verification_email(
+            user.email,
+            verification_link,
         )
 
         return MessageResponse(message="Verification email sent.")
