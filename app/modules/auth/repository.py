@@ -98,3 +98,11 @@ class EmailVerificationRepository:
         self.db.commit()
         self.db.refresh(token)
         return token
+
+    def update(
+        self,
+        token: EmailVerificationToken,
+    ):
+        self.db.commit()
+        self.db.refresh(token)
+        return token

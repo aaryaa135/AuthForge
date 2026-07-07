@@ -32,6 +32,7 @@ from app.modules.auth.schemas import (
 from app.core.exceptions import AppException
 from app.modules.auth.models import EmailVerificationToken
 from app.modules.auth.repository import EmailVerificationRepository
+from app.modules.auth.schemas import ResendVerificationRequest
 
 
 class AuthService:
@@ -338,3 +339,78 @@ class AuthService:
         )
 
         return MessageResponse(message="Password changed successfully.")
+
+    def verify_email(
+        self,
+        token: str,
+    ) -> MessageResponse:
+        """
+        Verify user's email using verification token.
+        """
+
+        verification = self.email_verification_repository.get_by_token(token)
+
+        if verification is None:
+            raise ValueError("Invalid verification token.")
+
+        if verification.is_used:
+            raise ValueError("Verification token already used.")
+
+        if verification.expires_at < datetime.utcnow():
+            raise ValueError("Verification token expired.")
+
+        user = verification.user
+
+        user.is_verified = True
+
+        self.user_repository.update(user)
+
+        verification.is_used = True
+
+        self.email_verification_repository.update(verification)
+
+        logger.info(
+            "Email verified: %s",
+            user.email,
+        )
+
+        return MessageResponse(message="Email verified successfully.")
+
+    def resend_verification(
+        self,
+        request: ResendVerificationRequest,
+    ) -> MessageResponse:
+        """
+        Generate a new email verification token.
+        """
+
+        user = self.user_repository.get_by_email(request.email)
+
+        if user is None:
+            return MessageResponse(
+                message="If the email exists, a verification email has been sent."
+            )
+
+        if user.is_verified:
+            return MessageResponse(message="Email is already verified.")
+
+        verification_token = token_urlsafe(32)
+
+        verification = EmailVerificationToken(
+            token=verification_token,
+            user_id=user.id,
+            expires_at=datetime.utcnow() + timedelta(hours=24),
+        )
+
+        self.email_verification_repository.create(verification)
+
+        logger.info(
+            "Verification email resent: %s",
+            user.email,
+        )
+
+        print(
+            f"\nVERIFY EMAIL:\nhttp://localhost:8000/api/v1/auth/verify-email?token={verification_token}\n"
+        )
+
+        return MessageResponse(message="Verification email sent.")
