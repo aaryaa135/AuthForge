@@ -33,6 +33,7 @@ from app.core.exceptions import AppException
 from app.modules.auth.models import EmailVerificationToken
 from app.modules.auth.repository import EmailVerificationRepository
 from app.modules.auth.schemas import ResendVerificationRequest
+from app.providers.base import EmailProvider
 
 
 class AuthService:
@@ -47,12 +48,14 @@ class AuthService:
         refresh_token_repository: RefreshTokenRepository,
         password_reset_repository: PasswordResetRepository,
         email_verification_repository: EmailVerificationRepository,
+        email_provider: EmailProvider,
     ):
         self.user_repository = user_repository
         self.role_repository = role_repository
         self.refresh_token_repository = refresh_token_repository
         self.password_reset_repository = password_reset_repository
         self.email_verification_repository = email_verification_repository
+        self.email_provider = email_provider
 
     def register_user(self, user_data: UserCreate) -> User:
         """
@@ -100,8 +103,14 @@ class AuthService:
             created_user.email,
         )
 
-        print(
-            f"\nVERIFY EMAIL:\nhttp://localhost:8000/api/v1/auth/verify-email?token={verification_token}\n"
+        verification_link = (
+            f"http://localhost:8000/api/v1/auth/verify-email"
+            f"?token={verification_token}"
+        )
+
+        self.email_provider.send_verification_email(
+            created_user.email,
+            verification_link,
         )
 
         logger.info(
@@ -273,6 +282,15 @@ class AuthService:
             user.email,
         )
 
+        reset_link = (
+            f"http://localhost:8000/api/v1/auth/reset-password" f"?token={reset_token}"
+        )
+
+        self.email_provider.send_password_reset_email(
+            user.email,
+            reset_link,
+        )
+
         return ForgotPasswordResponse(
             message="If the email exists, a password reset link has been sent."
         )
@@ -409,8 +427,14 @@ class AuthService:
             user.email,
         )
 
-        print(
-            f"\nVERIFY EMAIL:\nhttp://localhost:8000/api/v1/auth/verify-email?token={verification_token}\n"
+        verification_link = (
+            f"http://localhost:8000/api/v1/auth/verify-email"
+            f"?token={verification_token}"
+        )
+
+        self.email_provider.send_verification_email(
+            user.email,
+            verification_link,
         )
 
         return MessageResponse(message="Verification email sent.")

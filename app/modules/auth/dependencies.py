@@ -13,6 +13,7 @@ from app.modules.auth.service import AuthService
 
 from app.modules.roles.repository import RoleRepository
 from app.modules.users.repository import UserRepository
+from app.providers.factory import get_email_provider
 
 
 def get_auth_service(
@@ -28,4 +29,5 @@ def get_auth_service(
         refresh_token_repository=RefreshTokenRepository(db),
         password_reset_repository=PasswordResetRepository(db),
         email_verification_repository=EmailVerificationRepository(db),
+        email_provider=get_email_provider(),
     )
