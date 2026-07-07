@@ -22,6 +22,7 @@ from app.modules.auth.schemas import (
 from app.modules.auth.repository import (
     RefreshTokenRepository,
     PasswordResetRepository,
+    EmailVerificationRepository,
 )
 
 router = APIRouter(
@@ -44,6 +45,7 @@ def register(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -87,6 +89,7 @@ def login(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -122,6 +125,7 @@ def refresh(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -147,6 +151,7 @@ def logout(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -172,6 +177,7 @@ def forgot_password(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     return service.forgot_password(request)
@@ -190,6 +196,7 @@ def reset_password(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     return service.reset_password(request)
@@ -209,6 +216,7 @@ def change_password(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     return service.change_password(

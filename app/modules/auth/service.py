@@ -30,6 +30,8 @@ from app.modules.auth.schemas import (
     ChangePasswordRequest,
 )
 from app.core.exceptions import AppException
+from app.modules.auth.models import EmailVerificationToken
+from app.modules.auth.repository import EmailVerificationRepository
 
 
 class AuthService:
@@ -43,11 +45,13 @@ class AuthService:
         role_repository: RoleRepository,
         refresh_token_repository: RefreshTokenRepository,
         password_reset_repository: PasswordResetRepository,
+        email_verification_repository: EmailVerificationRepository,
     ):
         self.user_repository = user_repository
         self.role_repository = role_repository
         self.refresh_token_repository = refresh_token_repository
         self.password_reset_repository = password_reset_repository
+        self.email_verification_repository = email_verification_repository
 
     def register_user(self, user_data: UserCreate) -> User:
         """
@@ -79,6 +83,25 @@ class AuthService:
         )
 
         created_user = self.user_repository.create(user)
+
+        verification_token = token_urlsafe(32)
+
+        verification = EmailVerificationToken(
+            token=verification_token,
+            user_id=created_user.id,
+            expires_at=datetime.utcnow() + timedelta(hours=24),
+        )
+
+        self.email_verification_repository.create(verification)
+
+        logger.info(
+            "Email verification token created for %s",
+            created_user.email,
+        )
+
+        print(
+            f"\nVERIFY EMAIL:\nhttp://localhost:8000/api/v1/auth/verify-email?token={verification_token}\n"
+        )
 
         logger.info(
             "User registered: %s",
