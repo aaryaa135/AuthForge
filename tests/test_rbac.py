@@ -1,13 +1,12 @@
-import uuid
-from tests.conftest import client
-
 import os
+import uuid
+
 from dotenv import load_dotenv
 
-load_dotenv(".env.test")
+from tests.conftest import client
+from tests.utils import create_test_admin
 
-ADMIN_EMAIL = os.getenv("TEST_ADMIN_EMAIL")
-ADMIN_PASSWORD = os.getenv("TEST_ADMIN_PASSWORD")
+load_dotenv(".env.test")
 
 
 def test_user_cannot_access_users_endpoint():
@@ -36,11 +35,15 @@ def test_user_cannot_access_users_endpoint():
         },
     )
 
+    assert login.status_code == 200
+
     access_token = login.json()["access_token"]
 
     response = client.get(
         "/users/",
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+        },
     )
 
     assert response.status_code == 403
@@ -51,11 +54,13 @@ def test_admin_can_access_users():
     Admin should access user list.
     """
 
+    create_test_admin()
+
     login = client.post(
         "/api/v1/auth/login",
         data={
-            "username": ADMIN_EMAIL,
-            "password": ADMIN_PASSWORD,
+            "username": os.getenv("TEST_ADMIN_EMAIL"),
+            "password": os.getenv("TEST_ADMIN_PASSWORD"),
         },
     )
 
@@ -65,7 +70,9 @@ def test_admin_can_access_users():
 
     response = client.get(
         "/users/",
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+        },
     )
 
     assert response.status_code == 200
