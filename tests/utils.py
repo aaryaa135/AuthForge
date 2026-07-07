@@ -27,9 +27,7 @@ def create_test_admin():
         admin = User(
             email=os.getenv("TEST_ADMIN_EMAIL"),
             username="admin",
-            hashed_password=hash_password(
-                os.getenv("TEST_ADMIN_PASSWORD")
-            ),
+            hashed_password=hash_password(os.getenv("TEST_ADMIN_PASSWORD")),
             is_active=True,
             is_verified=True,
             role_id=role.id,
