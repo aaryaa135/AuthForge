@@ -1,10 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-
-from app.db.session import get_db
 from app.modules.auth.service import AuthService
-from app.modules.roles.repository import RoleRepository
-from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import UserCreate, UserResponse
 from app.modules.users.models import User
 from app.shared.dependencies import get_current_user
@@ -19,12 +14,8 @@ from app.modules.auth.schemas import (
     ResetPasswordRequest,
     ChangePasswordRequest,
 )
-from app.modules.auth.repository import (
-    RefreshTokenRepository,
-    PasswordResetRepository,
-    EmailVerificationRepository,
-)
 from app.modules.auth.schemas import ResendVerificationRequest
+from app.modules.auth.dependencies import get_auth_service
 
 
 router = APIRouter(
@@ -40,18 +31,10 @@ router = APIRouter(
 )
 def register(
     user: UserCreate,
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    auth_service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     try:
-        created_user = auth_service.register_user(user)
+        created_user = service.register_user(user)
 
         print(created_user)
         print(type(created_user))
@@ -84,18 +67,10 @@ def register(
 )
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    auth_service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     try:
-        return auth_service.login_user(
+        return service.login_user(
             identifier=form_data.username,
             password=form_data.password,
         )
@@ -120,18 +95,10 @@ def me(
 )
 def refresh(
     request: RefreshTokenRequest,
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    auth_service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     try:
-        return auth_service.refresh_tokens(request)
+        return service.refresh_tokens(request)
 
     except ValueError as exc:
         raise HTTPException(
@@ -145,19 +112,10 @@ def refresh(
     response_model=MessageResponse,
 )
 def logout(
-    request: RefreshTokenRequest,
-    db: Session = Depends(get_db),
+    request: RefreshTokenRequest, service: AuthService = Depends(get_auth_service)
 ):
-    auth_service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     try:
-        return auth_service.logout(request)
+        return service.logout(request)
 
     except ValueError as exc:
         raise HTTPException(
@@ -172,16 +130,8 @@ def logout(
 )
 def forgot_password(
     request: ForgotPasswordRequest,
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     return service.forgot_password(request)
 
 
@@ -191,16 +141,8 @@ def forgot_password(
 )
 def reset_password(
     request: ResetPasswordRequest,
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     return service.reset_password(request)
 
 
@@ -211,16 +153,8 @@ def reset_password(
 def change_password(
     request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     return service.change_password(
         current_user,
         request,
@@ -233,22 +167,14 @@ def change_password(
 )
 def verify_email(
     token: str,
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     try:
         return service.verify_email(token)
 
     except ValueError as exc:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
 
@@ -259,14 +185,6 @@ def verify_email(
 )
 def resend_verification(
     request: ResendVerificationRequest,
-    db: Session = Depends(get_db),
+    service: AuthService = Depends(get_auth_service),
 ):
-    service = AuthService(
-        UserRepository(db),
-        RoleRepository(db),
-        RefreshTokenRepository(db),
-        PasswordResetRepository(db),
-        EmailVerificationRepository(db),
-    )
-
     return service.resend_verification(request)
