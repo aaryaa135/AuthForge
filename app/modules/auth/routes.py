@@ -22,7 +22,10 @@ from app.modules.auth.schemas import (
 from app.modules.auth.repository import (
     RefreshTokenRepository,
     PasswordResetRepository,
+    EmailVerificationRepository,
 )
+from app.modules.auth.schemas import ResendVerificationRequest
+
 
 router = APIRouter(
     prefix="/api/v1/auth",
@@ -44,6 +47,7 @@ def register(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -87,6 +91,7 @@ def login(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -122,6 +127,7 @@ def refresh(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -147,6 +153,7 @@ def logout(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     try:
@@ -172,6 +179,7 @@ def forgot_password(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     return service.forgot_password(request)
@@ -190,6 +198,7 @@ def reset_password(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     return service.reset_password(request)
@@ -209,9 +218,55 @@ def change_password(
         RoleRepository(db),
         RefreshTokenRepository(db),
         PasswordResetRepository(db),
+        EmailVerificationRepository(db),
     )
 
     return service.change_password(
         current_user,
         request,
     )
+
+
+@router.get(
+    "/verify-email",
+    response_model=MessageResponse,
+)
+def verify_email(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    service = AuthService(
+        UserRepository(db),
+        RoleRepository(db),
+        RefreshTokenRepository(db),
+        PasswordResetRepository(db),
+        EmailVerificationRepository(db),
+    )
+
+    try:
+        return service.verify_email(token)
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+
+@router.post(
+    "/resend-verification",
+    response_model=MessageResponse,
+)
+def resend_verification(
+    request: ResendVerificationRequest,
+    db: Session = Depends(get_db),
+):
+    service = AuthService(
+        UserRepository(db),
+        RoleRepository(db),
+        RefreshTokenRepository(db),
+        PasswordResetRepository(db),
+        EmailVerificationRepository(db),
+    )
+
+    return service.resend_verification(request)
