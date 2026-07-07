@@ -34,6 +34,7 @@ from app.modules.auth.models import EmailVerificationToken
 from app.modules.auth.repository import EmailVerificationRepository
 from app.modules.auth.schemas import ResendVerificationRequest
 from app.providers.base import EmailProvider
+from app.cache.service import CacheService
 
 
 class AuthService:
@@ -56,6 +57,7 @@ class AuthService:
         self.password_reset_repository = password_reset_repository
         self.email_verification_repository = email_verification_repository
         self.email_provider = email_provider
+        self.cache = CacheService()
 
     def register_user(self, user_data: UserCreate) -> User:
         """
@@ -226,7 +228,9 @@ class AuthService:
 
     def logout(
         self,
+        current_user: User,
         request: RefreshTokenRequest,
+        access_token: str,
     ) -> MessageResponse:
         """
         Logout user by revoking the refresh token.
@@ -240,7 +244,9 @@ class AuthService:
         if payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token.")
 
-        stored_token = self.refresh_token_repository.get_by_token(request.refresh_token)
+        stored_token = self.refresh_token_repository.get_by_token(
+            request.refresh_token
+        )
 
         if stored_token is None:
             raise ValueError("Refresh token not found.")
@@ -250,7 +256,32 @@ class AuthService:
 
         self.refresh_token_repository.revoke(stored_token)
 
-        return MessageResponse(message="Logged out successfully.")
+        # Decode access token
+        access_payload = decode_token(access_token)
+
+        if access_payload is None:
+            raise ValueError("Invalid access token.")
+
+        jti = access_payload.get("jti")
+
+        if jti is None:
+            raise ValueError("Missing token identifier.")
+
+        exp = access_payload.get("exp")
+
+        remaining_ttl = max(
+            0,
+            int(exp - datetime.now(timezone.utc).timestamp()),
+        )
+
+        self.cache.blacklist_token(
+            jti,
+            remaining_ttl,
+        )
+
+        return MessageResponse(
+            message="Logged out successfully."
+        )
 
     def forgot_password(
         self,

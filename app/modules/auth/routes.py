@@ -16,7 +16,7 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.schemas import ResendVerificationRequest
 from app.modules.auth.dependencies import get_auth_service
-
+from fastapi import Request
 
 router = APIRouter(
     prefix="/api/v1/auth",
@@ -112,16 +112,26 @@ def refresh(
     response_model=MessageResponse,
 )
 def logout(
-    request: RefreshTokenRequest, service: AuthService = Depends(get_auth_service)
+    body: RefreshTokenRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    service: AuthService = Depends(get_auth_service),
 ):
-    try:
-        return service.logout(request)
+    authorization = request.headers.get("Authorization")
 
-    except ValueError as exc:
+    if authorization is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
+            detail="Missing Authorization header.",
         )
+
+    access_token = authorization.removeprefix("Bearer ").strip()
+
+    return service.logout(
+        current_user=current_user,
+        request=body,
+        access_token=access_token,
+    )
 
 
 @router.post(

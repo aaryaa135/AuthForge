@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     # =========================
     log_level: str
 
+    # =========================
+    # Redis
+    # =========================
+
+    redis_host: str
+    redis_port: int
+    redis_db: int
+    redis_password: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -78,6 +87,16 @@ class Settings(BaseSettings):
             f"@{self.db_host}:{self.db_port}"
             f"/{self.db_name}"
         )
+
+    @property
+    def redis_url(self) -> str:
+        if self.redis_password:
+            return (
+                f"redis://:{self.redis_password}"
+                f"@{self.redis_host}:{self.redis_port}/{self.redis_db}"
+            )
+
+        return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
 
 @lru_cache

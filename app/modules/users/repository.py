@@ -2,8 +2,10 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
+from app.core.logger import logger
 from app.modules.users.models import User
+from app.cache.service import CacheService
+from app.cache.keys import RedisKeys
 
 
 class UserRepository:
@@ -13,14 +15,61 @@ class UserRepository:
 
     def __init__(self, db: Session):
         self.db = db
+        self.cache = CacheService()
 
-    def get_by_email(self, email: str) -> User | None:
+    def get_by_email(
+        self,
+        email: str,
+    ):
+        cache_key = RedisKeys.user_email(email)
+
+        cached = self.cache.get_json(cache_key)
+
+        if cached:
+            logger.info("Cache HIT: %s", cache_key)
+            return self.db.get(User, UUID(cached["id"]))
+
+        logger.info("Cache MISS: %s", cache_key)
+
         stmt = select(User).where(User.email == email)
-        return self.db.execute(stmt).scalar_one_or_none()
 
-    def get_by_username(self, username: str) -> User | None:
+        user = self.db.execute(stmt).scalar_one_or_none()
+
+        if user:
+            self.cache.set_json(
+                cache_key,
+                {"id": str(user.id)},
+                ttl=300,
+            )
+
+        return user
+
+    def get_by_username(
+        self,
+        username: str,
+    ):
+        cache_key = RedisKeys.user_username(username)
+
+        cached = self.cache.get_json(cache_key)
+
+        if cached:
+            logger.info("Cache HIT: %s", cache_key)
+            return self.db.get(User, UUID(cached["id"]))
+
+        logger.info("Cache MISS: %s", cache_key)
+
         stmt = select(User).where(User.username == username)
-        return self.db.execute(stmt).scalar_one_or_none()
+
+        user = self.db.execute(stmt).scalar_one_or_none()
+
+        if user:
+            self.cache.set_json(
+                cache_key,
+                {"id": str(user.id)},
+                ttl=300,
+            )
+
+        return user
 
     def get_by_id(self, user_id: UUID | str) -> User | None:
         stmt = select(User).where(User.id == user_id)
@@ -41,5 +90,8 @@ class UserRepository:
 
     def update(self, user: User) -> User:
         self.db.commit()
+        self.cache.delete(RedisKeys.user_email(user.email))
+
+        self.cache.delete(RedisKeys.user_username(user.username))
         self.db.refresh(user)
         return user
