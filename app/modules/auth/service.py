@@ -35,6 +35,7 @@ from app.modules.auth.repository import EmailVerificationRepository
 from app.modules.auth.schemas import ResendVerificationRequest
 from app.providers.base import EmailProvider
 from app.cache.service import CacheService
+from app.modules.audit.service import AuditService
 
 
 class AuthService:
@@ -50,6 +51,7 @@ class AuthService:
         password_reset_repository: PasswordResetRepository,
         email_verification_repository: EmailVerificationRepository,
         email_provider: EmailProvider,
+        audit_service: AuditService,
     ):
         self.user_repository = user_repository
         self.role_repository = role_repository
@@ -58,6 +60,7 @@ class AuthService:
         self.email_verification_repository = email_verification_repository
         self.email_provider = email_provider
         self.cache = CacheService()
+        self.audit_service = audit_service
 
     def register_user(self, user_data: UserCreate) -> User:
         """
@@ -89,6 +92,12 @@ class AuthService:
         )
 
         created_user = self.user_repository.create(user)
+
+        self.audit_service.log(
+            action="REGISTER",
+            success=True,
+            user_id=created_user.id,
+        )
 
         verification_token = token_urlsafe(32)
 
@@ -191,6 +200,12 @@ class AuthService:
             user.email,
         )
 
+        self.audit_service.log(
+            action="LOGIN",
+            success=True,
+            user_id=user.id,
+        )
+
         return self._issue_tokens(user)
 
     def refresh_tokens(
@@ -277,6 +292,12 @@ class AuthService:
             remaining_ttl,
         )
 
+        self.audit_service.log(
+            action="LOGOUT",
+            success=True,
+            user_id=current_user.id,
+        )
+
         return MessageResponse(message="Logged out successfully.")
 
     def forgot_password(
@@ -357,6 +378,12 @@ class AuthService:
             user.email,
         )
 
+        self.audit_service.log(
+            action="PASSWORD_RESET",
+            success=True,
+            user_id=user.id,
+        )
+
         return MessageResponse(message="Password reset successful.")
 
     def change_password(
@@ -381,6 +408,12 @@ class AuthService:
         logger.info(
             "Password changed: %s",
             current_user.email,
+        )
+
+        self.audit_service.log(
+            action="PASSWORD_CHANGE",
+            success=True,
+            user_id=current_user.id,
         )
 
         return MessageResponse(message="Password changed successfully.")

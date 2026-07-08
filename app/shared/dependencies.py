@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.jwt import decode_token
 from app.db.session import get_db
 from app.modules.users.repository import UserRepository
+from app.cache.service import CacheService
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login",
@@ -23,6 +24,22 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token.",
+        )
+
+    jti = payload.get("jti")
+
+    if jti is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token.",
+        )
+
+    cache = CacheService()
+
+    if cache.is_blacklisted(jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked.",
         )
 
     try:

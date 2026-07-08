@@ -17,6 +17,8 @@ from app.modules.auth.schemas import (
 from app.modules.auth.schemas import ResendVerificationRequest
 from app.modules.auth.dependencies import get_auth_service
 from fastapi import Request
+from app.modules.auth.dependencies import login_rate_limit
+
 
 router = APIRouter(
     prefix="/api/v1/auth",
@@ -67,6 +69,7 @@ def register(
 )
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    _: None = Depends(login_rate_limit),
     service: AuthService = Depends(get_auth_service),
 ):
     try:
