@@ -8,6 +8,8 @@ from app.core.jwt import decode_token
 from app.db.session import get_db
 from app.modules.users.repository import UserRepository
 from app.cache.service import CacheService
+from app.modules.users.models import User
+
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login",
@@ -19,6 +21,9 @@ def get_current_user(
     db: Session = Depends(get_db),
 ):
     payload = decode_token(token)
+
+    print("TOKEN:", token[:30])
+    print("PAYLOAD:", payload)
 
     if not payload:
         raise HTTPException(
@@ -59,3 +64,19 @@ def get_current_user(
         )
 
     return user
+
+
+def get_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Ensure the current user has the Admin role.
+    """
+
+    if current_user.role.name != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+
+    return current_user

@@ -7,6 +7,7 @@ from app.core.logger import logger
 from app.modules.auth.routes import router as auth_router
 from app.modules.users.routes import router as users_router
 from app.core.exceptions import register_exception_handlers
+from app.modules.audit.routes import router as audit_router
 
 
 @asynccontextmanager
@@ -45,3 +46,4 @@ async def health_check():
 
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(audit_router)
