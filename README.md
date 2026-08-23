@@ -8,8 +8,9 @@
 ![Redis](https://img.shields.io/badge/Redis-7-red)
 ![Docker](https://img.shields.io/badge/Docker-Multi--Stage-blue)
 ![Pytest](https://img.shields.io/badge/Pytest-13%2B-success)
-![CI](https://github.com/YOUR_USERNAME/AuthForge/actions/workflows/ci.yml/badge.svg)
-<!-- TODO: replace YOUR_USERNAME -->
+![CI](https://github.com/aaryaa135/AuthForge/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://img.shields.io/badge/coverage-70%25-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 **Live Docs (local):** `http://localhost:8000/docs` · **Health:** `http://localhost:8000/health`
 
@@ -60,12 +61,17 @@ Client ──▶ FastAPI (CORS → RequestID → SecurityHeaders → Auth)
 
 ## 🛠 Tech Stack
 
-- **Runtime:** Python 3.11, FastAPI 0.139, Uvicorn, Pydantic v2 / pydantic-settings
-- **DB:** PostgreSQL 17, SQLAlchemy 2.0, Alembic 1.18, `psycopg2-binary`
-- **Cache:** Redis 8, `fakeredis` for tests
-- **Auth:** `python-jose` (HS256), `passlib+bcrypt`, `token_urlsafe`
-- **Quality:** `ruff 0.15`, `black 23.11`, `pytest 9.1 + pytest-cov`, `pre-commit`
-- **Infra:** Docker multi-stage, `docker compose`, GitHub Actions
+| Layer | Tech | Purpose |
+|-------|------|---------|
+| **Runtime** | Python 3.11 · FastAPI 0.139 · Uvicorn · Pydantic v2 | Sync API, validation, OpenAPI |
+| **Database** | PostgreSQL 17 · SQLAlchemy 2.0 · Alembic 1.18 · `psycopg2-binary` | `users/roles/tokens/audit`, migrations, pool 10/20 |
+| **Cache** | Redis 7/8 · `redis-py` · `fakeredis` | Blacklist `jti`, rate limit 5/min, `user:*` cache |
+| **Auth** | `python-jose` HS256 · `passlib[bcrypt]` · `token_urlsafe` | JWT `jti/type` rotation, email/reset tokens |
+| **Quality** | `ruff 0.15` · `black 23.11` · `pytest 9.1 + cov 70%` · `pre-commit` | Lint + format + CI |
+| **Infra** | Docker multi-stage (non-root) · `docker compose` · GitHub Actions (pg+redis) | Dev & prod parity |
+| **Observability** | `X-Request-ID` · Security headers · `AuditLog` · `/health` | Trace + audit |
+
+> **GitHub About →** See [`.github/ABOUT.md`](./.github/ABOUT.md) for exact **Description + 14 Topics** to paste into **Settings → About** gear icon.
 
 ---
 
@@ -114,7 +120,7 @@ Register → EmailVerification (24h) → Login → {access, refresh}
 ## 🚀 Getting Started (local, no Docker)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/AuthForge.git && cd AuthForge
+git clone https://github.com/aaryaa135/AuthForge.git && cd AuthForge
 python -m venv .venv
 # Windows: .venv\Scripts\activate  | Linux: source .venv/bin/activate
 pip install -r requirements.txt && pip install -e ".[dev]"

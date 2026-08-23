@@ -1,0 +1,26 @@
+name: Bug report
+description: Report a bug in AuthForge
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      placeholder: Request, response, logs
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduce
+      placeholder: curl or steps
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
