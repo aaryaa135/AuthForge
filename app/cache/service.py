@@ -1,7 +1,6 @@
-from typing import Optional
+import json
 
 from app.cache.client import redis_client
-import json
 from app.cache.keys import RedisKeys
 
 
@@ -14,7 +13,7 @@ class CacheService:
         self,
         key: str,
         value: str,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         redis_client.set(
             key,
@@ -25,7 +24,7 @@ class CacheService:
     def get(
         self,
         key: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         return redis_client.get(key)
 
     def delete(

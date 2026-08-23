@@ -40,7 +40,7 @@ def test_user_cannot_access_users_endpoint():
     access_token = login.json()["access_token"]
 
     response = client.get(
-        "/users/",
+        "/api/v1/users/",
         headers={
             "Authorization": f"Bearer {access_token}",
         },
@@ -69,7 +69,7 @@ def test_admin_can_access_users():
     access_token = login.json()["access_token"]
 
     response = client.get(
-        "/users/",
+        "/api/v1/users/",
         headers={
             "Authorization": f"Bearer {access_token}",
         },

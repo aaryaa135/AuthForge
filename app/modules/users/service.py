@@ -1,9 +1,9 @@
-from app.modules.users.repository import UserRepository
-from app.modules.users.schemas import UserResponse
-
 from uuid import UUID
+
 from app.core.logger import logger
 from app.modules.roles.repository import RoleRepository
+from app.modules.users.repository import UserRepository
+from app.modules.users.schemas import UserResponse
 
 
 class UserService:

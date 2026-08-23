@@ -3,7 +3,6 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.modules.roles.models import Role
 
-
 DEFAULT_ROLES = [
     {
         "name": "Admin",

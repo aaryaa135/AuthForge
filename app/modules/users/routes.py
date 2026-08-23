@@ -1,40 +1,52 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-
-from app.db.session import get_db
-
-from app.modules.users.repository import UserRepository
-from app.modules.users.schemas import UserResponse
-from app.modules.users.service import UserService
-
-from app.core.dependencies import require_role
-from app.modules.users.models import User
-
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from app.core.dependencies import require_role
+from app.db.session import get_db
 from app.modules.roles.repository import RoleRepository
-from app.modules.users.schemas import UpdateUserRoleRequest, UpdateUserStatusRequest
+from app.modules.users.models import User
+from app.modules.users.repository import UserRepository
+from app.modules.users.schemas import UpdateUserRoleRequest, UpdateUserStatusRequest, UserResponse
+from app.modules.users.service import UserService
+from app.shared.pagination import PaginatedResponse
 
 router = APIRouter(
-    prefix="/users",
+    prefix="/api/v1/users",
     tags=["Users"],
 )
 
 
 @router.get(
     "/",
-    response_model=list[UserResponse],
+    response_model=PaginatedResponse[UserResponse],
 )
 def list_users(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(require_role("Admin")),
 ):
-    service = UserService(
-        UserRepository(db),
+    repo = UserRepository(db)
+    offset = (page - 1) * page_size
+    users, total = repo.get_paginated(offset=offset, limit=page_size)
+    items = [
+        UserResponse(
+            id=user.id,
+            email=user.email,
+            username=user.username,
+            role=user.role.name,
+            is_active=user.is_active,
+            is_verified=user.is_verified,
+            created_at=user.created_at,
+        )
+        for user in users
+    ]
+    pages = (total + page_size - 1) // page_size if total else 0
+    return PaginatedResponse[UserResponse](
+        items=items, total=total, page=page, page_size=page_size, pages=pages
     )
-
-    return service.list_users()
 
 
 @router.get(

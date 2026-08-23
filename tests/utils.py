@@ -1,6 +1,6 @@
 import os
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from sqlalchemy import select
 
 from app.core.security import hash_password

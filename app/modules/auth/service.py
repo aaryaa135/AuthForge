@@ -1,41 +1,37 @@
-from app.core.security import hash_password
-from app.modules.roles.repository import RoleRepository
-from app.modules.users.models import User
-from app.modules.users.repository import UserRepository
-from app.modules.users.schemas import UserCreate
-from datetime import datetime, timedelta, timezone
-from app.core.security import verify_password
-from app.modules.auth.models import RefreshToken
-from app.modules.auth.repository import RefreshTokenRepository
+from datetime import UTC, datetime, timedelta
+from secrets import token_urlsafe
+
+from app.cache.service import CacheService
 from app.core.config import settings
-from app.core.logger import logger
 from app.core.jwt import (
     create_access_token,
     create_refresh_token,
     decode_token,
 )
-from app.modules.auth.schemas import (
-    RefreshTokenRequest,
-    TokenResponse,
-    MessageResponse,
+from app.core.logger import logger
+from app.core.security import hash_password, verify_password
+from app.modules.audit.service import AuditService
+from app.modules.auth.models import EmailVerificationToken, PasswordResetToken, RefreshToken
+from app.modules.auth.repository import (
+    EmailVerificationRepository,
+    PasswordResetRepository,
+    RefreshTokenRepository,
 )
-from secrets import token_urlsafe
-
-from app.modules.auth.models import PasswordResetToken
-from app.modules.auth.repository import PasswordResetRepository
 from app.modules.auth.schemas import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    MessageResponse,
+    RefreshTokenRequest,
+    ResendVerificationRequest,
     ResetPasswordRequest,
-    ChangePasswordRequest,
+    TokenResponse,
 )
-from app.core.exceptions import AppException
-from app.modules.auth.models import EmailVerificationToken
-from app.modules.auth.repository import EmailVerificationRepository
-from app.modules.auth.schemas import ResendVerificationRequest
+from app.modules.roles.repository import RoleRepository
+from app.modules.users.models import User
+from app.modules.users.repository import UserRepository
+from app.modules.users.schemas import UserCreate
 from app.providers.base import EmailProvider
-from app.cache.service import CacheService
-from app.modules.audit.service import AuditService
 
 
 class AuthService:
@@ -104,7 +100,7 @@ class AuthService:
         verification = EmailVerificationToken(
             token=verification_token,
             user_id=created_user.id,
-            expires_at=datetime.utcnow() + timedelta(hours=24),
+            expires_at=datetime.now(UTC) + timedelta(hours=24),
         )
 
         self.email_verification_repository.create(verification)
@@ -115,7 +111,7 @@ class AuthService:
         )
 
         verification_link = (
-            f"http://localhost:8000/api/v1/auth/verify-email"
+            f"{settings.frontend_url}/api/v1/auth/verify-email"
             f"?token={verification_token}"
         )
 
@@ -150,7 +146,7 @@ class AuthService:
         refresh = RefreshToken(
             token=refresh_token,
             user_id=user.id,
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.now(UTC)
             + timedelta(days=settings.refresh_token_expire_days),
         )
 
@@ -194,6 +190,9 @@ class AuthService:
                 identifier,
             )
             raise ValueError("Invalid credentials.")
+
+        if settings.require_email_verification and not user.is_verified:
+            raise ValueError("Email not verified. Please verify your email first.")
 
         logger.info(
             "User logged in: %s",
@@ -284,7 +283,7 @@ class AuthService:
 
         remaining_ttl = max(
             0,
-            int(exp - datetime.now(timezone.utc).timestamp()),
+            int(exp - datetime.now(UTC).timestamp()),
         )
 
         self.cache.blacklist_token(
@@ -320,7 +319,7 @@ class AuthService:
         token = PasswordResetToken(
             token=reset_token,
             user_id=user.id,
-            expires_at=datetime.utcnow() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
 
         self.password_reset_repository.create(token)
@@ -331,7 +330,7 @@ class AuthService:
         )
 
         reset_link = (
-            f"http://localhost:8000/api/v1/auth/reset-password" f"?token={reset_token}"
+            f"{settings.frontend_url}/api/v1/auth/reset-password" f"?token={reset_token}"
         )
 
         self.email_provider.send_password_reset_email(
@@ -354,15 +353,16 @@ class AuthService:
         reset = self.password_reset_repository.get_by_token(request.token)
 
         if reset is None:
-            raise AppException(
-                detail="Invalid reset token.",
-                status_code=400,
-            )
+            raise ValueError("Invalid reset token.")
 
         if reset.is_used:
             raise ValueError("Reset token already used.")
 
-        if reset.expires_at.replace(tzinfo=None) < datetime.utcnow():
+        # Normalize to UTC-aware for comparison
+        exp = reset.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=UTC)
+        if exp < datetime.now(UTC):
             raise ValueError("Reset token expired.")
 
         user = reset.user
@@ -434,7 +434,10 @@ class AuthService:
         if verification.is_used:
             raise ValueError("Verification token already used.")
 
-        if verification.expires_at < datetime.utcnow():
+        exp = verification.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=UTC)
+        if exp < datetime.now(UTC):
             raise ValueError("Verification token expired.")
 
         user = verification.user
@@ -477,7 +480,7 @@ class AuthService:
         verification = EmailVerificationToken(
             token=verification_token,
             user_id=user.id,
-            expires_at=datetime.utcnow() + timedelta(hours=24),
+            expires_at=datetime.now(UTC) + timedelta(hours=24),
         )
 
         self.email_verification_repository.create(verification)
@@ -488,7 +491,7 @@ class AuthService:
         )
 
         verification_link = (
-            f"http://localhost:8000/api/v1/auth/verify-email"
+            f"{settings.frontend_url}/api/v1/auth/verify-email"
             f"?token={verification_token}"
         )
 

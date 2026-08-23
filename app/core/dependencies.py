@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 
-from app.modules.users.dependencies import get_current_user
 from app.modules.users.models import User
+from app.shared.dependencies import get_current_user
 
 
 def require_role(*roles: str):

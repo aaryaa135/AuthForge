@@ -1,13 +1,10 @@
-from app.cache.service import CacheService
+from app.cache.client import redis_client
 
 
 class RateLimiter:
     """
-    Redis-based fixed window rate limiter.
+    Redis-based fixed window rate limiter (atomic INCR + EXPIRE).
     """
-
-    def __init__(self):
-        self.cache = CacheService()
 
     def allow_request(
         self,
@@ -15,25 +12,16 @@ class RateLimiter:
         limit: int,
         window: int,
     ) -> bool:
-        current = self.cache.get(key)
+        # Atomic increment; set expiry only on first hit
+        pipe = redis_client.pipeline()
+        pipe.incr(key)
+        pipe.ttl(key)
+        count, ttl = pipe.execute()
 
-        if current is None:
-            self.cache.set(
-                key,
-                "1",
-                ttl=window,
-            )
-            return True
+        if count == 1:
+            redis_client.expire(key, window)
+        elif ttl == -1:
+            # Key existed without TTL (edge case) — restore window
+            redis_client.expire(key, window)
 
-        current = int(current)
-
-        if current >= limit:
-            return False
-
-        self.cache.set(
-            key,
-            str(current + 1),
-            ttl=window,
-        )
-
-        return True
+        return count <= limit

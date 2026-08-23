@@ -4,12 +4,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
+from app.cache.service import CacheService
 from app.core.jwt import decode_token
 from app.db.session import get_db
-from app.modules.users.repository import UserRepository
-from app.cache.service import CacheService
 from app.modules.users.models import User
-
+from app.modules.users.repository import UserRepository
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login",
@@ -22,13 +21,16 @@ def get_current_user(
 ):
     payload = decode_token(token)
 
-    print("TOKEN:", token[:30])
-    print("PAYLOAD:", payload)
-
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token.",
+        )
+
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type.",
         )
 
     jti = payload.get("jti")
@@ -49,7 +51,7 @@ def get_current_user(
 
     try:
         user_id = UUID(payload["sub"])
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token.",
@@ -61,6 +63,12 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive.",
         )
 
     return user

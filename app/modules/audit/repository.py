@@ -25,6 +25,14 @@ class AuditRepository:
         stmt = select(AuditLog).order_by(AuditLog.created_at.desc())
         return list(self.db.scalars(stmt).all())
 
+    def get_paginated(self, offset: int = 0, limit: int = 20) -> tuple[list[AuditLog], int]:
+        from sqlalchemy import func
+
+        total = self.db.scalar(select(func.count()).select_from(AuditLog)) or 0
+        stmt = select(AuditLog).order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
+        items = list(self.db.scalars(stmt).all())
+        return items, total
+
     def get_by_user(
         self,
         user_id,

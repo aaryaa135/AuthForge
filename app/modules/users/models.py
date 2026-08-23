@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,6 +9,11 @@ from app.db.base import Base, TimestampMixin
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
+    __table_args__ = (
+        Index("ix_users_email", "email"),
+        Index("ix_users_username", "username"),
+        Index("ix_users_role_id", "role_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -20,12 +25,14 @@ class User(Base, TimestampMixin):
         String(255),
         unique=True,
         nullable=False,
+        index=True,
     )
 
     username: Mapped[str] = mapped_column(
         String(100),
         unique=True,
         nullable=False,
+        index=True,
     )
 
     hashed_password: Mapped[str] = mapped_column(

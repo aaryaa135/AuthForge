@@ -1,387 +1,261 @@
-# 🔐 AuthForge
+# 🔐 AuthForge — Production-Ready Auth Platform
 
-> **Production-ready Authentication & Authorization Platform built with FastAPI, PostgreSQL, Redis & Docker.**
+> FastAPI + PostgreSQL + Redis + Docker + RBAC + JWT rotation + audit logging. Built for SDE portfolio / production use.
 
-![Python](https://img.shields.io/badge/Python-3.13-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.116-green)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
-![Redis](https://img.shields.io/badge/Redis-Cache-red)
-![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
-![Pytest](https://img.shields.io/badge/Pytest-13%2B%20Tests-success)
-![CI](https://github.com/YOUR_USERNAME/AuthForge/actions/workflows/quality-checks.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.139-green)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue)
+![Redis](https://img.shields.io/badge/Redis-7-red)
+![Docker](https://img.shields.io/badge/Docker-Multi--Stage-blue)
+![Pytest](https://img.shields.io/badge/Pytest-13%2B-success)
+![CI](https://github.com/YOUR_USERNAME/AuthForge/actions/workflows/ci.yml/badge.svg)
+<!-- TODO: replace YOUR_USERNAME -->
 
----
-
-## 📖 Overview
-
-AuthForge is a modular authentication and authorization platform designed with production-ready architecture and security best practices.
-
-It provides secure user authentication, role-based authorization, JWT access & refresh tokens, Redis-powered token blacklisting, rate limiting, email verification, password reset, audit logging, automated testing, and CI/CD integration.
-
-The project follows a clean modular architecture making it reusable across multiple applications.
+**Live Docs (local):** `http://localhost:8000/docs` · **Health:** `http://localhost:8000/health`
 
 ---
 
-# ✨ Features
+## TL;DR
 
-### Authentication
+Modular auth service you can drop into any product: registration, email verification, login (rate-limited, blacklisted JWT), refresh rotation, RBAC (Admin/User), password reset/change, Redis caching, audit logs, paginated admin APIs, security headers + request IDs, typed config, migrations, and CI that actually runs tests.
 
-- User Registration
-- Secure Login
-- JWT Access Tokens
-- Refresh Token Rotation
-- Logout
-- Session Management
-
-### Authorization
-
-- Role-Based Access Control (RBAC)
-- Admin/User Roles
-- Protected Routes
-
-### Security
-
-- Password Hashing (bcrypt)
-- Email Verification
-- Password Reset
-- Redis Token Blacklisting
-- Login Rate Limiting
-- Secure JWT Validation
-
-### Performance
-
-- Redis User Caching
-- Optimized Database Queries
-
-### Monitoring
-
-- Audit Logging
-- Request Tracking
-- Security Event Logging
-
-### DevOps
-
-- Docker Support
-- GitHub Actions CI
-- Automated Testing
-- Ruff
-- Black
-
----
-
-# 🏗 Architecture
-
-```
-                Client
-                   │
-                   ▼
-             FastAPI Server
-                   │
-        ┌──────────┴──────────┐
-        │                     │
- Authentication           Authorization
-        │                     │
-        └──────────┬──────────┘
-                   │
-              Auth Service
-                   │
-      ┌────────────┼─────────────┐
-      │            │             │
- PostgreSQL      Redis      Email Provider
-      │            │
-      ▼            ▼
- Persistent     Cache &
- Storage      Blacklisting
+```bash
+cp .env.example .env   # set JWT_SECRET_KEY (>=32 chars)
+docker compose up --build -d
+make migrate seed      # alembic upgrade + seed roles
+make test              # pytest with fakeredis fallback
 ```
 
 ---
 
-# 🛠 Tech Stack
+## ✨ Features
 
-## Backend
-
-- FastAPI
-- SQLAlchemy
-- PostgreSQL
-- Redis
-- Pydantic v2
-
-## Authentication
-
-- JWT
-- OAuth2 Password Flow
-- RBAC
-- Refresh Token Rotation
-
-## Security
-
-- bcrypt
-- Email Verification
-- Password Reset
-- Rate Limiting
-
-## DevOps
-
-- Docker
-- GitHub Actions
-- Pytest
-- Ruff
-- Black
+| Domain | Capabilities |
+|--------|--------------|
+| **Auth** | Register, Login (OAuth2 password flow), JWT access (15m) + refresh (7d) rotation, Logout (Redis blacklist by `jti`), `GET /me` |
+| **Account** | Email verification (`token_urlsafe` 24h), resend, forgot/reset (1h), change-password (auth) |
+| **AuthZ** | RBAC via `require_role("Admin")`, `role` on `User`, protected `/users`, `/audit` |
+| **Security** | bcrypt, JWT `jti` + `type` validation, Redis blacklist, atomic fixed-window rate limit (5/min login), security headers (HSTS, nosniff, DENY), CORS `CORS_ORIGINS`, secret validators |
+| **Performance** | Redis `user:email/*` cache (5m), DB `Index` on `email/username/token/created_at`, pagination `?page&page_size`, SQLAlchemy pool `10/20` |
+| **Observability** | Request ID `X-Request-ID` on every response, structured logs (JSON in prod), `AuditLog` for register/login/logout/password events, `/health` |
+| **DevOps** | Multi-stage non-root Docker + healthcheck, `docker-compose` with Postgres 17 + Redis 7 healthchecks, `Makefile`, `pre-commit` (ruff/black), GitHub Actions (postgres+redis services, migrations, `pytest --cov`), `pyproject.toml` |
 
 ---
 
-# 📂 Project Structure
+## 🏗 Architecture
+
+```
+Client ──▶ FastAPI (CORS → RequestID → SecurityHeaders → Auth)
+              ├─▶ AuthService ─┬─▶ PostgreSQL (users, roles, refresh/email/reset_tokens, audit_logs)
+              │                ├─▶ Redis (blacklist:{jti}, login:{id}, user:{email|username})
+              │                └─▶ EmailProvider (Console / pluggable Resend/SMTP)
+              └─▶ UserService / AuditService
+```
+
+**DB Indexes:** `users.email`, `users.username`, `refresh_tokens.token/user_id`, `*_tokens.token`, `audit_logs.user_id/action/created_at`.
+
+**Request lifecycle:** `OAuth2PasswordBearer` → `decode_token` → `type=="access"` → `jti` not blacklisted → `User.is_active` → `require_role` → handler → `X-Request-ID` + security headers.
+
+---
+
+## 🛠 Tech Stack
+
+- **Runtime:** Python 3.11, FastAPI 0.139, Uvicorn, Pydantic v2 / pydantic-settings
+- **DB:** PostgreSQL 17, SQLAlchemy 2.0, Alembic 1.18, `psycopg2-binary`
+- **Cache:** Redis 8, `fakeredis` for tests
+- **Auth:** `python-jose` (HS256), `passlib+bcrypt`, `token_urlsafe`
+- **Quality:** `ruff 0.15`, `black 23.11`, `pytest 9.1 + pytest-cov`, `pre-commit`
+- **Infra:** Docker multi-stage, `docker compose`, GitHub Actions
+
+---
+
+## 📂 Project Structure
 
 ```
 app/
-│
-├── cache/
-├── core/
-├── db/
-├── modules/
-│   ├── auth/
-│   ├── users/
-│   ├── roles/
-│   ├── audit/
-│   └── ...
-│
-├── providers/
-├── shared/
-│
-tests/
-alembic/
+  main.py                # FastAPI app, middleware (CORS/RequestID/Security), legacy /users → /api/v1 rewrite
+  core/  config.py       # 12-factor settings + validators (secret>=32, env)
+         jwt.py          # create_access/refresh, decode (jti/type)
+         security.py     # hash/verify
+         dependencies.py # require_role → shared.get_current_user
+         middleware.py   # RequestID + SecurityHeaders
+         exceptions.py   # AppException + validation/500 handlers
+         rate_limit.py   # atomic INCR+TTL
+         logger.py       # JSON in prod
+  cache/ client.py keys.py service.py
+  db/    base.py session.py models.py  # pool_size 10/20
+  modules/
+    auth/  models/schemas/repository/service/routes/dependencies
+    users/ models/schemas/repository/service/routes  # paginated
+    roles/ models/repository
+    audit/ models/schemas/repository/service/routes  # paginated
+  providers/ base/console/factory
+  shared/ dependencies.py  # canonical get_current_user (blacklist+is_active)
+          pagination.py    # PaginationParams + PaginatedResponse
+          responses.py
+alembic/ versions/  # 5 migrations + indexes
+tests/   conftest.py # fakeredis fallback  | test_*.py
+scripts/ seed_roles.py seed_admin.py
+pyproject.toml  Makefile  .pre-commit-config.yaml  docker-compose.yml  Dockerfile
 ```
 
 ---
 
-# 🔑 Authentication Flow
+## 🔑 Auth Flow
 
 ```
-Register
-    │
-    ▼
-Email Verification
-    │
-    ▼
-Login
-    │
-    ▼
-Access Token
-Refresh Token
-    │
-    ▼
-Protected APIs
-    │
-    ▼
-Refresh Token Rotation
-    │
-    ▼
-Logout
-    │
-    ▼
-JWT Blacklisted
+Register → EmailVerification (24h) → Login → {access, refresh}
+    → GET /api/v1/auth/me (Bearer access) → POST /refresh (rotation) → POST /logout (blacklist jti)
+    → forgot → reset (1h) → change-password (auth)
 ```
 
 ---
 
-# 🚀 Getting Started
-
-## Clone
+## 🚀 Getting Started (local, no Docker)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/AuthForge.git
-
-cd AuthForge
-```
-
----
-
-## Virtual Environment
-
-```bash
+git clone https://github.com/YOUR_USERNAME/AuthForge.git && cd AuthForge
 python -m venv .venv
-```
+# Windows: .venv\Scripts\activate  | Linux: source .venv/bin/activate
+pip install -r requirements.txt && pip install -e ".[dev]"
+pre-commit install
 
-Windows
-
-```bash
-.venv\Scripts\activate
-```
-
-Linux
-
-```bash
-source .venv/bin/activate
-```
-
----
-
-## Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## Configure Environment
-
-Create
-
-```
-.env
-```
-
-```
-DATABASE_URL=
-JWT_SECRET_KEY=
-JWT_ALGORITHM=
-REDIS_URL=
-SMTP_USERNAME=
-SMTP_PASSWORD=
-```
-
----
-
-## Run Migrations
-
-```bash
+cp .env.example .env   # edit DATABASE_URL, JWT_SECRET_KEY, REDIS_HOST
 alembic upgrade head
-```
+python scripts/seed_roles.py
+# optional: python scripts/seed_admin.py  (needs TEST_ADMIN_EMAIL/PASSWORD)
 
----
-
-## Run Server
-
-```bash
 uvicorn app.main:app --reload
+# docs: http://localhost:8000/docs
 ```
 
-Swagger
+**Make shortcuts:**
 
-```
-http://localhost:8000/docs
+```bash
+make install lint format test run migrate seed docker-up docker-down clean
 ```
 
 ---
 
-# 🐳 Docker
-
-Start Redis
+## 🐳 Docker (recommended)
 
 ```bash
-docker run -d \
--p 6379:6379 \
---name authforge-redis \
-redis:7
+cp .env.example .env
+docker compose up --build -d   # api:8000  postgres:5433  redis:6379
+docker compose exec api alembic upgrade head
+docker compose exec api python scripts/seed_roles.py
+curl http://localhost:8000/health
+make test   # or USE_FAKE_REDIS=1 pytest
 ```
 
-Verify
-
-```bash
-docker exec -it authforge-redis redis-cli
-```
-
-```
-PING
-
-PONG
-```
+`Dockerfile` is multi-stage, non-root `appuser (10001)`, `HEALTHCHECK curl /health`, `PYTHONPATH=/app`.
 
 ---
 
-# 🧪 Running Tests
+## 🧪 Testing
 
 ```bash
-pytest
+pytest -v                          # requires Postgres+Redis (docker compose up)
+USE_FAKE_REDIS=1 pytest -v         # no infra needed (fakeredis)
+pytest --cov=app --cov-report=term-missing  # fail_under 70 (pyproject.toml)
 ```
 
-Current Status
-
-```
-13+ Tests Passing
-```
+13 integration tests: `register`, `login`, `refresh rotation`, `logout`, `blacklist`, `RBAC (/users)`, `rate limit (429)`, `cache`, `redis`, `forgot-password`, `change-password`. CI runs them with real `postgres:17` + `redis:7` services.
 
 ---
 
-# 📬 API Endpoints
+## 📬 API Reference (v1)
 
-## Authentication
+All versioned under `/api/v1`; legacy `/users`, `/audit` still work via rewrite middleware (deprecated).
+
+**Auth ` /api/v1/auth`**
+
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| POST | `/register` | no | `201` `UserResponse` |
+| POST | `/login` | no | `OAuth2PasswordRequestForm`, 5/min rate limit |
+| POST | `/refresh` | no | body `refresh_token` → rotation |
+| POST | `/logout` | Bearer | body `refresh_token` + `Authorization` access → blacklist `jti` |
+| GET | `/me` | Bearer | current user |
+| POST | `/change-password` | Bearer | `current_password` + `new_password` |
+| POST | `/forgot-password` | no | always `200` (no enumeration) |
+| POST | `/reset-password` | no | `token` + `new_password` |
+| GET | `/verify-email?token=` | no | 24h window |
+| POST | `/resend-verification` | no | `email` |
+
+**Users ` /api/v1/users` (Admin)**
+
+| Method | Endpoint | Auth | Query |
+|--------|----------|------|-------|
+| GET | `/` | Admin | `?page=1&page_size=20` → `PaginatedResponse[UserResponse]` |
+| GET | `/{user_id}` | Admin | |
+| PATCH | `/{user_id}/role` | Admin | `{role: "Admin"\|"User"\|"Manager"}` |
+| PATCH | `/{user_id}/status` | Admin | `{is_active: bool}` |
+
+**Audit ` /api/v1/audit` (Admin)**
+
+| Method | Endpoint | Query |
+|--------|----------|-------|
+| GET | `/` | `?page&page_size` → `PaginatedResponse[AuditLogResponse]` |
+
+**Ops**
 
 | Method | Endpoint |
-|----------|----------------------------|
-| POST | /api/v1/auth/register |
-| POST | /api/v1/auth/login |
-| POST | /api/v1/auth/logout |
-| POST | /api/v1/auth/refresh |
-| GET | /api/v1/auth/me |
-| POST | /api/v1/auth/change-password |
-| POST | /api/v1/auth/forgot-password |
-| POST | /api/v1/auth/reset-password |
-| GET | /api/v1/auth/verify-email |
+|--------|----------|
+| GET | `/` |
+| GET | `/health` → `{status, application, version, environment}` |
+
+Swagger: `/docs` · ReDoc: `/redoc` · OpenAPI: `/openapi.json`
 
 ---
 
-# 🔒 Security Features
+## 🔒 Security Checklist
 
-✅ Password Hashing
+- [x] `JWT_SECRET_KEY` validator `>=32` chars, rejects placeholder
+- [x] `bcrypt` hashing, `jti` per token, `type` check, `exp` enforcement
+- [x] Redis blacklist on logout with `remaining_ttl = exp - now`
+- [x] `is_active` + optional `require_email_verification` gate on login
+- [x] Atomic rate limit (`INCR` + `EXPIRE` pipeline), no `GET-set` race
+- [x] `X-Request-ID`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, HSTS on https
+- [x] Pydantic `EmailStr`, `Field(min_length)`, `CORS_ORIGINS` allowlist
+- [x] No `.env` in git, `DATABASE_URL` sanitized in example
 
-✅ JWT Authentication
+---
 
-✅ Refresh Token Rotation
+## ⚙️ Configuration
 
-✅ Redis Token Blacklisting
+See `.env.example` (16 vars). Key: `APP_NAME`, `APP_VERSION`, `ENVIRONMENT` (`development/test/staging/production`), `DATABASE_URL` (or `DB_HOST/PORT/NAME/USER/PASSWORD`), `JWT_SECRET_KEY/ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`, `REDIS_HOST/PORT/DB/PASSWORD`, `FRONTEND_URL`, `CORS_ORIGINS`, `REQUIRE_EMAIL_VERIFICATION`, `LOG_LEVEL`. Validated at startup.
 
-✅ Login Rate Limiting
+---
 
-✅ RBAC
+## 📘 Code Guide
 
-✅ Email Verification
-
-✅ Password Reset
-
-✅ Audit Logging
+See [`GUIDE.md`](./GUIDE.md) — every file explained (`app/main.py:24`, `app/core/*`, `app/modules/*`, `alembic/*`, `tests/*`) with flows, security matrix, and how to extend.
 
 ---
 
 # 📈 CI/CD
 
-Every push automatically runs:
-
-- Ruff
-- Black
-- Pytest
-
-via GitHub Actions.
+`.github/workflows/ci.yml` on `push/PR → main/develop/feature/**`: `ruff check` → `black --check` → `alembic upgrade head` → `seed_roles` → `pytest -v --tb=short` (with `postgres:17` + `redis:7` healthchecks). No secrets in logs.
 
 ---
 
-# 🗺 Roadmap
+## 🗺 Roadmap
 
-- [x] Authentication
-- [x] RBAC
-- [x] Email Verification
-- [x] Password Reset
-- [x] Refresh Tokens
-- [x] JWT Blacklisting
-- [x] Redis Cache
-- [x] Rate Limiting
-- [x] Audit Logging
-- [ ] Session Management
-- [ ] Admin Dashboard APIs
-- [ ] Frontend Dashboard
-- [ ] Deployment
+- [x] Auth, RBAC, JWT rotation, blacklist, rate limit, email flows, audit, cache, pagination
+- [ ] Token cleanup cron (expired `refresh_tokens`)
+- [ ] Admin dashboard API (search/filter)
+- [ ] Frontend (Next.js) + e2e
+- [ ] Deploy (Fly.io / Render) + observability (Sentry, Prometheus)
 
 ---
 
-# 🤝 Contributing
+## 🤝 Contributing
 
-Contributions are welcome.
-
-Please open an issue before submitting large changes.
+See `CONTRIBUTING.md` + `make lint/format/test`. Conventional commits, PR must pass CI.
 
 ---
 
-# 📄 License
+## 📄 License
 
-MIT License
+MIT

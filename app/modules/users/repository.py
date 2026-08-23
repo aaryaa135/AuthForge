@@ -2,10 +2,11 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.cache.keys import RedisKeys
+from app.cache.service import CacheService
 from app.core.logger import logger
 from app.modules.users.models import User
-from app.cache.service import CacheService
-from app.cache.keys import RedisKeys
 
 
 class UserRepository:
@@ -87,6 +88,14 @@ class UserRepository:
         """
         stmt = select(User).order_by(User.created_at.desc())
         return list(self.db.scalars(stmt).all())
+
+    def get_paginated(self, offset: int = 0, limit: int = 20) -> tuple[list[User], int]:
+        from sqlalchemy import func
+
+        total = self.db.scalar(select(func.count()).select_from(User)) or 0
+        stmt = select(User).order_by(User.created_at.desc()).offset(offset).limit(limit)
+        items = list(self.db.scalars(stmt).all())
+        return items, total
 
     def update(self, user: User) -> User:
         self.db.commit()

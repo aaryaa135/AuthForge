@@ -1,18 +1,17 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 import os
 
-from app.db.session import SessionLocal
-from app.core.security import get_password_hash
-from app.modules.roles.models import Role
-from app.modules.users.models import User
+from dotenv import load_dotenv
 
+load_dotenv(".env")
+load_dotenv(".env.test", override=False)
 
-ADMIN_EMAIL = os.getenv("TEST_ADMIN_EMAIL")
-ADMIN_PASSWORD = os.getenv("TEST_ADMIN_PASSWORD")
+from app.core.security import hash_password  # noqa: E402
+from app.db.session import SessionLocal  # noqa: E402
+from app.modules.roles.models import Role  # noqa: E402
+from app.modules.users.models import User  # noqa: E402
+
+ADMIN_EMAIL = os.getenv("TEST_ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL")
+ADMIN_PASSWORD = os.getenv("TEST_ADMIN_PASSWORD") or os.getenv("ADMIN_PASSWORD")
 
 
 def seed_admin():
@@ -30,10 +29,14 @@ def seed_admin():
         print("Admin already exists.")
         return
 
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+        print("TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD not set. Check .env/.env.test")
+        return
+
     admin = User(
         email=ADMIN_EMAIL,
         username="admin",
-        hashed_password=get_password_hash(ADMIN_PASSWORD),
+        hashed_password=hash_password(ADMIN_PASSWORD),
         is_active=True,
         is_verified=True,
         role_id=admin_role.id,

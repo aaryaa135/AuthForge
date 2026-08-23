@@ -1,25 +1,20 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import RateLimiter
 from app.db.session import get_db
-
+from app.modules.audit.repository import AuditRepository
+from app.modules.audit.service import AuditService
 from app.modules.auth.repository import (
-    RefreshTokenRepository,
-    PasswordResetRepository,
     EmailVerificationRepository,
+    PasswordResetRepository,
+    RefreshTokenRepository,
 )
-
 from app.modules.auth.service import AuthService
-
 from app.modules.roles.repository import RoleRepository
 from app.modules.users.repository import UserRepository
 from app.providers.factory import get_email_provider
-from fastapi import HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
-
-from app.core.rate_limit import RateLimiter
-from app.modules.audit.repository import AuditRepository
-from app.modules.audit.service import AuditService
 
 
 def get_auth_service(

@@ -1,7 +1,7 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -26,13 +26,13 @@ class Settings(BaseSettings):
     # =========================
     # Database
     # =========================
-    database_url: Optional[str] = None
+    database_url: str | None = None
 
-    db_host: Optional[str] = None
-    db_port: Optional[int] = None
-    db_name: Optional[str] = None
-    db_user: Optional[str] = None
-    db_password: Optional[str] = None
+    db_host: str | None = None
+    db_port: int | None = None
+    db_name: str | None = None
+    db_user: str | None = None
+    db_password: str | None = None
 
     # =========================
     # JWT
@@ -55,6 +55,37 @@ class Settings(BaseSettings):
     redis_port: int
     redis_db: int
     redis_password: str | None = None
+
+    # =========================
+    # Frontend / Links
+    # =========================
+    frontend_url: str = "http://localhost:8000"
+    require_email_verification: bool = False
+    cors_origins: str = ""  # comma-separated, e.g. "https://app.example.com,https://admin.example.com"
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_secret(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError("JWT_SECRET_KEY must be at least 32 characters")
+        if v in ("<LONG_RANDOM_SECRET>", "change-me", "secret"):
+            raise ValueError("JWT_SECRET_KEY is placeholder — set a strong random value")
+        return v
+
+    @field_validator("environment")
+    @classmethod
+    def validate_env(cls, v: str) -> str:
+        if v not in ("development", "test", "staging", "production"):
+            raise ValueError("ENVIRONMENT must be one of development/test/staging/production")
+        return v
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        if self.cors_origins.strip():
+            return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        if self.environment == "production":
+            return [self.frontend_url]
+        return ["*"]
 
     model_config = SettingsConfigDict(
         env_file=".env",

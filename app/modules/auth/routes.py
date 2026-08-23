@@ -1,24 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from app.modules.auth.service import AuthService
-from app.modules.users.schemas import UserCreate, UserResponse
-from app.modules.users.models import User
-from app.shared.dependencies import get_current_user
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
+from app.modules.auth.dependencies import get_auth_service, login_rate_limit
 from app.modules.auth.schemas import (
-    TokenResponse,
-    MessageResponse,
-    RefreshTokenRequest,
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    MessageResponse,
+    RefreshTokenRequest,
+    ResendVerificationRequest,
     ResetPasswordRequest,
-    ChangePasswordRequest,
+    TokenResponse,
 )
-from app.modules.auth.schemas import ResendVerificationRequest
-from app.modules.auth.dependencies import get_auth_service
-from fastapi import Request
-from app.modules.auth.dependencies import login_rate_limit
-
+from app.modules.auth.service import AuthService
+from app.modules.users.models import User
+from app.modules.users.schemas import UserCreate, UserResponse
+from app.shared.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/api/v1/auth",
@@ -38,10 +35,6 @@ def register(
     try:
         created_user = service.register_user(user)
 
-        print(created_user)
-        print(type(created_user))
-        print(created_user.role)
-
         return UserResponse(
             id=created_user.id,
             email=created_user.email,
@@ -52,11 +45,7 @@ def register(
             created_at=created_user.created_at,
         )
 
-    except Exception as exc:
-        import traceback
-
-        traceback.print_exc()
-
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -141,11 +130,17 @@ def logout(
 
     access_token = authorization.removeprefix("Bearer ").strip()
 
-    return service.logout(
-        current_user=current_user,
-        request=body,
-        access_token=access_token,
-    )
+    try:
+        return service.logout(
+            current_user=current_user,
+            request=body,
+            access_token=access_token,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.post(
@@ -167,7 +162,13 @@ def reset_password(
     request: ResetPasswordRequest,
     service: AuthService = Depends(get_auth_service),
 ):
-    return service.reset_password(request)
+    try:
+        return service.reset_password(request)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.post(
@@ -179,10 +180,16 @@ def change_password(
     current_user: User = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
 ):
-    return service.change_password(
-        current_user,
-        request,
-    )
+    try:
+        return service.change_password(
+            current_user,
+            request,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.get(

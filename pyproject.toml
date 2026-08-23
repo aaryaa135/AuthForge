@@ -1,0 +1,76 @@
+[project]
+name = "authforge"
+version = "1.0.0"
+description = "Production-ready Authentication & Authorization Platform — FastAPI, PostgreSQL, Redis, Docker"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "AuthForge" }]
+dependencies = [
+    "fastapi==0.139.0",
+    "uvicorn[standard]==0.50.0",
+    "SQLAlchemy==2.0.51",
+    "psycopg2-binary==2.9.12",
+    "alembic==1.18.5",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "python-jose==3.5.0",
+    "passlib==1.7.4",
+    "bcrypt==4.0.1",
+    "redis==8.0.1",
+    "python-multipart==0.0.32",
+    "email-validator==2.3.0",
+    "python-dotenv==1.2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "fakeredis==2.31.1",
+    "httpx==0.28.1",
+    "ruff==0.15.20",
+    "black==23.11.0",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["alembic/versions", ".venv", ".git"]
+lint.select = ["E", "F", "W", "I", "B", "C4", "UP", "S"]
+lint.ignore = ["S101", "S603", "S607", "B008", "B904"]
+lint.isort.known-first-party = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S105", "S106"]
+"scripts/**/*.py" = ["E402"]
+"alembic/**/*.py" = ["E402", "UP007", "UP035", "I001", "W291"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests as slow",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = ["*/tests/*", "*/alembic/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+skip_covered = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
