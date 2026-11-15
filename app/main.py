@@ -70,6 +70,8 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health_check():
+    if settings.environment == "production":
+        return {"status": "healthy"}
     return {
         "status": "healthy",
         "application": settings.app_name,

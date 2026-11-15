@@ -20,11 +20,26 @@ router = APIRouter(
 def get_audit_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="Search by action"),
+    action: str | None = Query(None, description="Filter by exact action"),
+    user_id: str | None = Query(None, description="Filter by user id"),
+    success: bool | None = Query(None, description="Filter by success status"),
+    sort_by: str = Query("created_at", description="Sort field"),
+    sort_order: str = Query("desc", description="Sort order: asc or desc"),
     current_user: User = Depends(get_admin_user),
     repository: AuditRepository = Depends(get_audit_repository),
 ):
     offset = (page - 1) * page_size
-    logs, total = repository.get_paginated(offset=offset, limit=page_size)
+    logs, total = repository.get_paginated(
+        offset=offset,
+        limit=page_size,
+        search=search,
+        action=action,
+        user_id=user_id,
+        success=success,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
     items = [AuditLogResponse.model_validate(log) for log in logs]
     pages = (total + page_size - 1) // page_size if total else 0
     return PaginatedResponse[AuditLogResponse](

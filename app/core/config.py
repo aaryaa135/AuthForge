@@ -61,7 +61,22 @@ class Settings(BaseSettings):
     # =========================
     frontend_url: str = "http://localhost:8000"
     require_email_verification: bool = False
-    cors_origins: str = ""  # comma-separated, e.g. "https://app.example.com,https://admin.example.com"
+    cors_origins: str = (
+        ""  # comma-separated, e.g. "https://app.example.com,https://admin.example.com"
+    )
+
+    # =========================
+    # Email Provider
+    # =========================
+    email_provider: str = "console"  # console | smtp | resend
+    smtp_host: str | None = None
+    smtp_port: int | None = None
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_from_name: str | None = "AuthForge"
+    resend_api_key: str | None = None
+    resend_from_email: str | None = None
 
     @field_validator("jwt_secret_key")
     @classmethod
@@ -77,6 +92,14 @@ class Settings(BaseSettings):
     def validate_env(cls, v: str) -> str:
         if v not in ("development", "test", "staging", "production"):
             raise ValueError("ENVIRONMENT must be one of development/test/staging/production")
+        return v
+
+    @field_validator("debug")
+    @classmethod
+    def validate_debug(cls, v: bool, info) -> bool:
+        environment = info.data.get("environment")
+        if environment == "production" and v:
+            raise ValueError("DEBUG must be False in production environment")
         return v
 
     @property
@@ -108,9 +131,7 @@ class Settings(BaseSettings):
                 self.db_password,
             ]
         ):
-            raise ValueError(
-                "Either DATABASE_URL or all DB_* variables must be provided."
-            )
+            raise ValueError("Either DATABASE_URL or all DB_* variables must be provided.")
 
         return (
             f"postgresql+psycopg2://"

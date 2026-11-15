@@ -32,6 +32,8 @@ dependencies = [
     "python-multipart==0.0.32",
     "email-validator==2.3.0",
     "python-dotenv==1.2.2",
+    "pyotp==2.9.0",
+    "qrcode[pil]==7.4.2",
 ]
 
 [project.optional-dependencies]

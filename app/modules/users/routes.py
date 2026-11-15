@@ -25,12 +25,25 @@ router = APIRouter(
 def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="Search by email or username"),
+    role: str | None = Query(None, description="Filter by role name"),
+    is_active: bool | None = Query(None, description="Filter by active status"),
+    sort_by: str = Query("created_at", description="Sort field"),
+    sort_order: str = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
     _: User = Depends(require_role("Admin")),
 ):
     repo = UserRepository(db)
     offset = (page - 1) * page_size
-    users, total = repo.get_paginated(offset=offset, limit=page_size)
+    users, total = repo.get_paginated(
+        offset=offset,
+        limit=page_size,
+        search=search,
+        role=role,
+        is_active=is_active,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
     items = [
         UserResponse(
             id=user.id,
@@ -80,8 +93,14 @@ def update_user_role(
     user_id: UUID,
     request: UpdateUserRoleRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(require_role("Admin")),
+    current_user: User = Depends(require_role("Admin")),
 ):
+    if current_user.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot modify your own role.",
+        )
+
     service = UserService(
         UserRepository(db),
     )
@@ -110,8 +129,14 @@ def update_user_status(
     user_id: UUID,
     request: UpdateUserStatusRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(require_role("Admin")),
+    current_user: User = Depends(require_role("Admin")),
 ):
+    if current_user.id == user_id and not request.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot deactivate your own account.",
+        )
+
     service = UserService(
         UserRepository(db),
     )

@@ -7,7 +7,6 @@ from app.modules.users.schemas import UserResponse
 
 
 class UserService:
-
     """
     Handles user-related business logic.
     """

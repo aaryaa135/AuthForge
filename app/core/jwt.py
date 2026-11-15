@@ -18,15 +18,15 @@ def create_access_token(
     if expires_delta:
         expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(UTC) + timedelta(
-            minutes=settings.access_token_expire_minutes
-        )
+        expire = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
 
     payload: dict[str, Any] = {
         "sub": subject,
         "exp": expire,
         "type": "access",
         "jti": str(uuid4()),
+        "iss": settings.app_name,
+        "aud": settings.app_name,
     }
 
     return jwt.encode(
@@ -47,15 +47,15 @@ def create_refresh_token(
     if expires_delta:
         expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(UTC) + timedelta(
-            days=settings.refresh_token_expire_days
-        )
+        expire = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
 
     payload = {
         "sub": subject,
         "exp": expire,
         "type": "refresh",
         "jti": str(uuid4()),
+        "iss": settings.app_name,
+        "aud": settings.app_name,
     }
 
     return jwt.encode(
@@ -68,6 +68,8 @@ def create_refresh_token(
 def decode_token(token: str) -> dict[str, Any] | None:
     """
     Decode and validate a JWT.
+
+    Verifies signature, expiration, issuer, and audience.
     """
 
     try:
@@ -75,6 +77,8 @@ def decode_token(token: str) -> dict[str, Any] | None:
             token,
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
+            audience=settings.app_name,
+            issuer=settings.app_name,
         )
 
     except JWTError:
