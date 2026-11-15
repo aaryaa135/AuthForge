@@ -11,11 +11,13 @@ class EmailProvider(ABC):
         self,
         email: str,
         verification_link: str,
-    ) -> None: ...
+    ) -> None:
+        ...
 
     @abstractmethod
     def send_password_reset_email(
         self,
         email: str,
         reset_link: str,
-    ) -> None: ...
+    ) -> None:
+        ...
