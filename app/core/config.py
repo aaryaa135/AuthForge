@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     # =========================
     jwt_secret_key: str
     jwt_algorithm: str
-    access_token_expire_minutes: int
-    refresh_token_expire_days: int
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
 
     # =========================
     # Logging
