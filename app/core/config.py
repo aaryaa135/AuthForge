@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     cors_origins: str = (
         ""  # comma-separated, e.g. "https://app.example.com,https://admin.example.com"
     )
+    CORS_ORIGINS: str = ""  # override via env, comma-separated
 
     # =========================
     # Email Provider
@@ -104,6 +105,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
+        if self.CORS_ORIGINS.strip():
+            return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
         if self.cors_origins.strip():
             return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
         if self.environment == "production":

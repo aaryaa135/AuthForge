@@ -351,23 +351,62 @@ def totp_status(
     response_model=TotpLoginVerifyResponse,
 )
 def login_verify_totp(
+    user_id: str,
     request: TotpVerifyRequest,
     http_request: Request = None,
     service: AuthService = Depends(get_auth_service),
 ):
     """
     Complete login after 2FA challenge.
-    Requires a pending 2FA session (created during login when 2FA is enabled).
-    The client must pass the user_id from the login response in the request body.
+    Requires user_id (from login response) and TOTP token.
+    Verifies pending 2FA session and TOTP token, then issues tokens.
     """
-    # We need user_id but it's not in TotpVerifyRequest. Extract from pending state.
-    # The pending key format is 2fa_pending:{user_id}. We need to find which user has pending 2FA.
-    # This is a limitation - in production, pass user_id in the request or use a temp token.
-    # For now, we'll scan Redis for pending 2FA keys.
-    # Better approach: add user_id to TotpVerifyRequest or use a separate schema.
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Use /api/v1/auth/2fa/login-verify-complete with user_id.",
+    from uuid import UUID
+
+    # Verify pending 2FA session exists
+    pending_key = f"2fa_pending:{user_id}"
+    if not service.cache.exists(pending_key):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No pending two-factor session found. Please log in first.",
+        )
+
+    try:
+        user_uuid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID.",
+        )
+
+    user = service.user_repository.get_by_id(user_uuid)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    try:
+        service.verify_totp_login(
+            user,
+            request.token,
+            ip_address=http_request.client.host if http_request else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        )
+
+    # Clear pending 2FA session
+    service.cache.delete(pending_key)
+
+    # Issue tokens
+    tokens = service._issue_tokens(user)
+
+    return TotpLoginVerifyResponse(
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
     )
 
 
