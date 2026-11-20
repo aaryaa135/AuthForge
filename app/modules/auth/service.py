@@ -150,9 +150,7 @@ class AuthService:
             created_user.email,
         )
 
-        verification_link = (
-            f"{settings.frontend_url}/api/v1/auth/verify-email?token={verification_token}"
-        )
+        verification_link = f"{settings.frontend_url}/verify-email?token={verification_token}"
 
         self.email_provider.send_verification_email(
             created_user.email,
@@ -446,7 +444,7 @@ class AuthService:
             ip_address=ip_address,
         )
 
-        reset_link = f"{settings.frontend_url}/api/v1/auth/reset-password?token={reset_token}"
+        reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
 
         self.email_provider.send_password_reset_email(
             user.email,
@@ -678,9 +676,7 @@ class AuthService:
             user.email,
         )
 
-        verification_link = (
-            f"{settings.frontend_url}/api/v1/auth/verify-email?token={verification_token}"
-        )
+        verification_link = f"{settings.frontend_url}/verify-email?token={verification_token}"
 
         self.email_provider.send_verification_email(
             user.email,
